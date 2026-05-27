@@ -1,0 +1,2781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ford Racing Technical Control System</title>
+<style>
+  /* ---------- Root Tokens & Themes ---------- */
+  :root {
+    --ford-blue: #0a3d91;
+    --ford-blue-bright: #1872d6;
+    --ford-blue-glow: rgba(24, 114, 214, 0.4);
+    --ferrari-red: #d40000;
+    --ferrari-red-bright: #ff2a2a;
+    --ferrari-red-glow: rgba(255, 42, 42, 0.4);
+    --warning-yellow: #f5c518;
+    --severity-orange: #ff8a1f;
+    --severity-blue: #3aa3ff;
+    --resolved-green: #22c55e;
+    
+    /* Default Dark Theme */
+    --bg-0: #06090f;
+    --bg-1: #0b1220;
+    --bg-2: #111a2e;
+    --bg-3: #18243d;
+    --border: #1f2c47;
+    --border-strong: #2b3b5c;
+    --text-0: #ffffff;
+    --text-1: #cfd6e4;
+    --text-2: #8a94ab;
+    --text-3: #5b6479;
+    --metal: linear-gradient(135deg, #1a2438 0%, #0f1624 100%);
+    --metal-light: linear-gradient(135deg, #1d2a44 0%, #141d31 100%);
+    --track-bg: #050811;
+  }
+
+  /* Night Mode Override */
+  body.night-mode {
+    --bg-0: #020305;
+    --bg-1: #05070d;
+    --bg-2: #0a0d18;
+    --bg-3: #101528;
+    --border: #131d33;
+    --border-strong: #1d2c4d;
+    --text-1: #b8c3d6;
+    --text-2: #6e7b96;
+    --metal: linear-gradient(135deg, #0d1321 0%, #05070d 100%);
+    --metal-light: linear-gradient(135deg, #111827 0%, #080b14 100%);
+    --track-bg: #010204;
+    --ford-blue-glow: rgba(24, 114, 214, 0.6);
+    --ferrari-red-glow: rgba(255, 42, 42, 0.6);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg-0);
+    color: var(--text-1);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.5s ease;
+  }
+
+  /* Background Ambient Glows */
+  .ambient-bg {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(24,114,214,0.12), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(212,0,0,0.08), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body.night-mode .ambient-bg {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(24,114,214,0.20), transparent 70%),
+      radial-gradient(900px 500px at 100% 0%, rgba(212,0,0,0.15), transparent 70%);
+  }
+
+  /* ---------- Top Navigation ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: linear-gradient(180deg, rgba(6,9,15,0.95), rgba(6,9,15,0.85));
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    transition: all 0.5s ease;
+  }
+  body.night-mode .topbar {
+    background: linear-gradient(180deg, rgba(2,3,5,0.95), rgba(2,3,5,0.85));
+  }
+  .topbar-inner {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto;
+  }
+  .brand-logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--ford-blue-bright), #04265f);
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 1px;
+    box-shadow: 0 0 0 1px var(--border-strong), 0 6px 24px var(--ford-blue-glow);
+    font-size: 18px;
+  }
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .brand-title {
+    font-size: 15px;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .brand-sub {
+    font-size: 11px;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+  .nav-links a {
+    color: var(--text-1);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav-links a:hover {
+    color: #fff;
+    background: var(--bg-2);
+    border-color: var(--border);
+  }
+  .top-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Theme Toggle & Live Pill */
+  .btn-icon {
+    background: var(--bg-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text-1);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .btn-icon:hover {
+    background: var(--bg-3);
+    color: #fff;
+    border-color: var(--ford-blue-bright);
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(34,197,94,0.6);
+    animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+    70%  { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-2);
+    font-size: 11px;
+    color: var(--text-1);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ---------- Layout ---------- */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+  }
+  section {
+    margin-bottom: 40px;
+    scroll-margin-top: 80px;
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.5px;
+  }
+  .section-title .bar {
+    width: 4px;
+    height: 22px;
+    background: linear-gradient(180deg, var(--ford-blue-bright), var(--ford-blue));
+    border-radius: 2px;
+  }
+  .section-sub {
+    color: var(--text-2);
+    font-size: 13px;
+  }
+
+  /* ---------- Hero Dashboard ---------- */
+  .hero {
+    background: var(--metal);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 40px);
+    pointer-events: none;
+  }
+  .hero h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+  .hero p {
+    color: var(--text-1);
+    margin: 0 0 20px;
+    max-width: 950px;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+  .chip {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-2);
+    color: var(--text-1);
+    font-weight: 600;
+  }
+  .chip.blue  { border-color: var(--ford-blue-bright); color: #a9c9ff; background: rgba(24,114,214,0.1); }
+  .chip.red   { border-color: var(--ferrari-red-bright); color: #ffb3b3; background: rgba(212,0,0,0.1); }
+
+  /* KPI Grid with Sparklines */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .kpi {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 16px 12px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .kpi:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-strong);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  }
+  .kpi .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-2);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .kpi .value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+  }
+  .kpi .sub {
+    font-size: 12px;
+    color: var(--text-2);
+    margin-top: 2px;
+    z-index: 1;
+  }
+  .kpi.critical .value { color: var(--ferrari-red-bright); }
+  .kpi.good .value     { color: var(--resolved-green); }
+  .kpi .value small { font-size: 14px; color: var(--text-2); font-weight: 500; }
+  
+  .kpi::after {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--ford-blue-bright);
+  }
+  .kpi.critical::after { background: var(--ferrari-red-bright); }
+  .kpi.good::after     { background: var(--resolved-green); }
+  .kpi.warn::after     { background: var(--warning-yellow); }
+
+  /* Sparkline Canvas inside KPI */
+  .kpi-sparkline {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 35px;
+    width: 100%;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+  .kpi:hover .kpi-sparkline { opacity: 0.45; }
+
+  /* ---------- Generic Grids ---------- */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  @media (max-width: 1200px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 700px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 22px; }
+  }
+
+  /* ---------- Cards & Panels ---------- */
+  .panel {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+  }
+  .panel h3 {
+    margin: 0 0 14px;
+    color: #fff;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Movie Reference Cards */
+  .ref-card {
+    background: var(--metal-light);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--ford-blue-bright);
+    border-radius: 10px;
+    padding: 18px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .ref-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    border-color: var(--border-strong);
+  }
+  .ref-card.critical { border-left-color: var(--ferrari-red-bright); }
+  .ref-card.warn     { border-left-color: var(--warning-yellow); }
+  .ref-card h4 {
+    margin: 0 0 6px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .ref-card .meta {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-2);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .ref-card p {
+    margin: 0 0 14px;
+    color: var(--text-1);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .ref-card .action {
+    font-size: 12px;
+    color: var(--text-1);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 6px;
+    border-left: 2px solid var(--ford-blue);
+  }
+
+  /* ---------- Forms ---------- */
+  form.issue-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  form.issue-form .full { grid-column: 1 / -1; }
+  form.issue-form .half { grid-column: span 2; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-2);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.2s;
+  }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--ford-blue-bright);
+    box-shadow: 0 0 0 3px var(--ford-blue-glow);
+    background: var(--bg-3);
+  }
+  .severity-preview {
+    background: var(--bg-2);
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-2);
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: var(--bg-3); border-color: var(--ford-blue-bright); }
+  .btn.primary {
+    background: linear-gradient(180deg, var(--ford-blue-bright), var(--ford-blue));
+    border-color: var(--ford-blue-bright);
+    box-shadow: 0 6px 20px var(--ford-blue-glow);
+  }
+  .btn.primary:hover { filter: brightness(1.15); box-shadow: 0 8px 25px var(--ford-blue-glow); }
+  .btn.danger {
+    background: linear-gradient(180deg, var(--ferrari-red-bright), #8a0000);
+    border-color: var(--ferrari-red-bright);
+    box-shadow: 0 6px 20px var(--ferrari-red-glow);
+  }
+  .btn.danger:hover { filter: brightness(1.15); box-shadow: 0 8px 25px var(--ferrari-red-glow); }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+  .btn.ghost:hover { background: var(--bg-2); color: #fff; }
+
+  /* ---------- History Table & Filters ---------- */
+  .filters {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .filters input, .filters select {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+  }
+  .filters input:focus, .filters select:focus {
+    border-color: var(--ford-blue-bright);
+  }
+  @media (max-width: 1000px) {
+    .filters { grid-template-columns: repeat(2, 1fr); }
+    form.issue-form { grid-template-columns: 1fr; }
+    form.issue-form .half { grid-column: span 1; }
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-1);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+  }
+  table.issues {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 1300px;
+  }
+  table.issues th, table.issues td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  table.issues thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-2);
+    color: var(--text-2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    z-index: 1;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s, background 0.2s;
+  }
+  table.issues thead th:hover {
+    color: #fff;
+    background: var(--bg-3);
+  }
+  table.issues thead th::after {
+    content: " ↕";
+    font-size: 10px;
+    opacity: 0.4;
+  }
+  table.issues tbody tr {
+    transition: background 0.2s;
+  }
+  table.issues tbody tr:hover { background: rgba(255,255,255,0.025); }
+  table.issues tbody tr.critical-row {
+    background: rgba(212,0,0,0.08);
+    border-left: 3px solid var(--ferrari-red-bright);
+  }
+  table.issues tbody tr.critical-row:hover {
+    background: rgba(212,0,0,0.12);
+  }
+  
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .sev-crit   { background: rgba(212,0,0,0.15); color: #ff8a8a; border-color: var(--ferrari-red); }
+  .sev-high   { background: rgba(255,138,31,0.15); color: #ffc48a; border-color: var(--severity-orange); }
+  .sev-medium { background: rgba(245,197,24,0.15); color: #ffe27a; border-color: var(--warning-yellow); }
+  .sev-low    { background: rgba(58,163,255,0.15); color: #a8d4ff; border-color: var(--severity-blue); }
+  
+  .st-resolved  { background: rgba(34,197,94,0.15); color: #7ee7a4; border-color: var(--resolved-green); }
+  .st-pending   { background: rgba(212,0,0,0.15); color: #ff8a8a; border-color: var(--ferrari-red); }
+  .st-analysis  { background: rgba(245,197,24,0.15); color: #ffe27a; border-color: var(--warning-yellow); }
+  .st-progress  { background: rgba(24,114,214,0.15); color: #a9c9ff; border-color: var(--ford-blue-bright); }
+
+  /* ---------- Analytics Visuals ---------- */
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 1100px) { .analytics-grid { grid-template-columns: 1fr; } }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 44px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .bar-track {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    height: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--ford-blue), var(--ford-blue-bright));
+    transition: width 0.8s cubic-bezier(0.1, 0.7, 0.1, 1);
+  }
+  .bar-fill.red    { background: linear-gradient(90deg, #8a0000, var(--ferrari-red-bright)); }
+  .bar-fill.orange { background: linear-gradient(90deg, #b85c00, var(--severity-orange)); }
+  .bar-fill.yellow { background: linear-gradient(90deg, #b8860b, var(--warning-yellow)); }
+  .bar-fill.green  { background: linear-gradient(90deg, #148f42, var(--resolved-green)); }
+
+  .donut-stack { display: flex; flex-direction: column; gap: 10px; }
+  .donut-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    transition: border-color 0.2s;
+  }
+  .donut-item:hover { border-color: var(--border-strong); }
+  .donut-item .count { font-weight: 700; color: #fff; }
+
+  /* ---------- Interactive Race Track (Le Mans) ---------- */
+  .track-wrap {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 1100px) { .track-wrap { grid-template-columns: 1fr; } }
+
+  .track-container {
+    position: relative;
+    height: 420px;
+    background: var(--track-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+  }
+
+  /* SVG Track Styling */
+  .lemans-svg {
+    width: 100%;
+    height: 100%;
+    max-width: 800px;
+    display: block;
+  }
+  .track-asphalt {
+    fill: none;
+    stroke: #131b2e;
+    stroke-width: 42;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  body.night-mode .track-asphalt { stroke: #0a0f1d; }
+  
+  .track-border {
+    fill: none;
+    stroke: #2b3b5c;
+    stroke-width: 46;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.6;
+  }
+  .track-line {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 1.5;
+    stroke-dasharray: 8 8;
+    opacity: 0.3;
+  }
+  
+  /* Sector Highlights */
+  .sector-indicator {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    opacity: 0.7;
+    transition: stroke 0.5s;
+  }
+  .sector-1 { stroke: var(--resolved-green); }
+  .sector-2 { stroke: var(--resolved-green); }
+  .sector-3 { stroke: var(--resolved-green); }
+
+  /* Track Labels */
+  .track-label {
+    font-family: "Segoe UI", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    fill: var(--text-2);
+    letter-spacing: 1px;
+    user-select: none;
+    pointer-events: none;
+  }
+  .track-label.major {
+    font-size: 12px;
+    fill: #fff;
+    font-weight: 800;
+  }
+
+  /* Animated Cars on Track */
+  .track-car-group {
+    transition: transform 0.05s linear;
+    will-change: transform;
+  }
+  
+  /* Headlight Cones */
+  .headlight-cone {
+    fill: url(#headlight-grad);
+    opacity: 0.6;
+    mix-blend-mode: screen;
+  }
+  body.night-mode .headlight-cone { opacity: 0.9; }
+
+  /* Track Telemetry Panel */
+  .track-controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-2);
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+  .speed-btns { display: flex; gap: 4px; }
+  .speed-btn {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .speed-btn.active {
+    background: var(--ford-blue-bright);
+    color: #fff;
+    border-color: var(--ford-blue-bright);
+  }
+
+  .track-stats .stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    align-items: center;
+  }
+  .track-stats .stat .v { color: #fff; font-weight: 700; }
+  .track-stats .stat .v.ford-c   { color: #a9c9ff; }
+  .track-stats .stat .v.ferr-c   { color: #ff8a8a; }
+  
+  .alert-box {
+    background: rgba(245,197,24,0.08);
+    border: 1px solid var(--warning-yellow);
+    color: #ffe27a;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 10px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    line-height: 1.4;
+  }
+
+  /* Live Terminal Stream */
+  .telemetry-terminal {
+    background: #03050a;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 12px;
+    height: 130px;
+    display: flex;
+    flex-direction: column;
+  }
+  .terminal-header {
+    background: var(--bg-2);
+    padding: 4px 10px;
+    font-size: 10px;
+    font-family: monospace;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .terminal-header .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .terminal-header .dot.r { background: #ff5f56; }
+  .terminal-header .dot.y { background: #ffbd2e; }
+  .terminal-header .dot.g { background: #27c93f; }
+  .terminal-body {
+    padding: 8px 10px;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 11px;
+    color: #3aa3ff;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .terminal-body .log-row {
+    line-height: 1.3;
+  }
+  .terminal-body .log-row.warn { color: #f5c518; }
+  .terminal-body .log-row.crit { color: #ff2a2a; }
+  .terminal-body .log-row.radio { color: #cfd6e4; font-style: italic; }
+
+  /* ---------- Car Technical Map (X-Ray Blueprint) ---------- */
+  .carmap-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 1000px) { .carmap-grid { grid-template-columns: 1fr; } }
+  
+  .blueprint-wrap {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 360px;
+    overflow: hidden;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.6);
+  }
+
+  /* Blueprint Grid Pattern */
+  .blueprint-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: size: 20px 20px;
+    background-image:
+      linear-gradient(to right, rgba(24, 114, 214, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(24, 114, 214, 0.05) 1px, transparent 1px);
+    pointer-events: none;
+  }
+
+  .blueprint-controls {
+    position: absolute;
+    top: 14px; left: 14px; right: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+  }
+
+  .blueprint-mode-toggle {
+    display: inline-flex;
+    background: var(--bg-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .blueprint-mode-toggle button {
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .blueprint-mode-toggle button.active {
+    background: var(--ford-blue-bright);
+    color: #fff;
+  }
+
+  /* SVG Car Styles */
+  .gt40-blueprint-svg {
+    width: 100%;
+    height: auto;
+    max-width: 700px;
+    display: block;
+    overflow: visible;
+  }
+
+  /* Outer Shell */
+  .car-outer-shell {
+    transition: opacity 0.6s cubic-bezier(0.1, 0.7, 0.1, 1);
+  }
+  .blueprint-wrap.xray-active .car-outer-shell {
+    opacity: 0.15;
+  }
+
+  /* Internal Parts (X-Ray) */
+  .car-internal-part {
+    opacity: 0;
+    transform: scale(0.95);
+    transform-origin: center;
+    transition: all 0.5s cubic-bezier(0.1, 0.7, 0.1, 1);
+    cursor: pointer;
+  }
+  .blueprint-wrap.xray-active .car-internal-part {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Hotspots directly on parts */
+  .part-hotspot {
+    fill: rgba(24,114,214,0.15);
+    stroke: var(--ford-blue-bright);
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .part-hotspot:hover {
+    fill: rgba(24,114,214,0.4);
+    stroke-width: 2.5;
+  }
+  .part-hotspot.crit { fill: rgba(212,0,0,0.3); stroke: var(--ferrari-red-bright); }
+  .part-hotspot.high { fill: rgba(255,138,31,0.25); stroke: var(--severity-orange); }
+  .part-hotspot.med  { fill: rgba(245,197,24,0.2); stroke: var(--warning-yellow); }
+
+  /* Glowing Internal Highlights */
+  .internal-glow {
+    animation: partPulse 2s infinite alternate;
+  }
+  @keyframes partPulse {
+    0% { filter: drop-shadow(0 0 2px currentColor); }
+    100% { filter: drop-shadow(0 0 8px currentColor); }
+  }
+
+  /* Floating Technical HUD (Tooltip) */
+  .tech-hud {
+    position: absolute;
+    top: 50px; right: 20px;
+    width: 260px;
+    background: rgba(11, 18, 32, 0.95);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--ford-blue-bright);
+    border-radius: 8px;
+    padding: 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    transform: translateY(10px);
+  }
+  .tech-hud.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .tech-hud h5 { margin: 0 0 6px; font-size: 14px; color: #fff; display: flex; justify-content: space-between; }
+  .tech-hud .specs { font-size: 11px; color: var(--text-2); margin-bottom: 8px; line-height: 1.3; }
+  .tech-hud .stress-bar {
+    height: 4px; background: var(--bg-2); border-radius: 2px; overflow: hidden; margin-bottom: 10px;
+  }
+  .tech-hud .stress-fill { height: 100%; background: var(--resolved-green); width: 0%; transition: width 0.5s; }
+  .tech-hud .hud-btn {
+    width: 100%; padding: 6px; font-size: 11px; background: var(--bg-2); border: 1px solid var(--border);
+    color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.2s;
+  }
+  .tech-hud .hud-btn:hover { background: var(--ford-blue); border-color: var(--ford-blue-bright); }
+
+  /* Part List */
+  .part-list { display: flex; flex-direction: column; gap: 8px; }
+  .part-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--ford-blue-bright);
+    border-radius: 8px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .part-item:hover {
+    transform: translateX(4px);
+    border-color: var(--border-strong);
+    background: var(--bg-3);
+  }
+  .part-item.crit { border-left-color: var(--ferrari-red-bright); }
+  .part-item.high { border-left-color: var(--severity-orange); }
+  .part-item.med  { border-left-color: var(--warning-yellow); }
+  .part-item.none { border-left-color: var(--text-3); }
+  .part-name { font-size: 13px; color: #fff; font-weight: 700; }
+  .part-meta { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+
+  /* ---------- Pit Crew Board ---------- */
+  .pit-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1100px) { .pit-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px)  { .pit-grid { grid-template-columns: 1fr; } }
+  .pit-col {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+  }
+  .pit-col h4 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-2);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pit-col h4 .n {
+    background: var(--bg-2);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    border: 1px solid var(--border);
+  }
+  .pit-col.crit-col   { border-top: 4px solid var(--ferrari-red-bright); }
+  .pit-col.pend-col   { border-top: 4px solid var(--severity-orange); }
+  .pit-col.res-col    { border-top: 4px solid var(--resolved-green); }
+  .pit-col.prev-col   { border-top: 4px solid var(--ford-blue-bright); }
+  
+  .pit-list-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+  }
+  .pit-item {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-1);
+    transition: transform 0.2s;
+  }
+  .pit-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+  }
+  .pit-item .tag {
+    font-size: 10px;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .pit-item .txt {
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  /* ---------- Toast Notifications ---------- */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .toast {
+    background: rgba(11, 18, 32, 0.95);
+    border: 1px solid var(--border-strong);
+    border-left: 4px solid var(--ford-blue-bright);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+    pointer-events: auto;
+    animation: slideIn 0.3s cubic-bezier(0.1, 0.7, 0.1, 1), fadeOut 0.5s 4.5s forwards;
+    max-width: 320px;
+  }
+  .toast.crit { border-left-color: var(--ferrari-red-bright); }
+  .toast.warn { border-left-color: var(--warning-yellow); }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; transform: translateY(10px); }
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    position: relative;
+    z-index: 1;
+    margin-top: 40px;
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    letter-spacing: 1px;
+  }
+  footer span { color: var(--text-2); font-weight: 600; }
+
+  /* Custom Scrollbars */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-0); }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ford-blue); }
+</style>
+</head>
+<body>
+
+<!-- Ambient Backplane -->
+<div class="ambient-bg"></div>
+
+<!-- ===== TOP NAVIGATION ===== -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">F</div>
+      <div class="brand-text">
+        <span class="brand-title">FORD RACING TCS</span>
+        <span class="brand-sub">Technical Control System</span>
+      </div>
+    </div>
+    
+    <nav class="nav-links">
+      <a href="#dashboard">Dashboard</a>
+      <a href="#referencias">Referências do Filme</a>
+      <a href="#registrar">Registrar Ocorrência</a>
+      <a href="#historico">Histórico</a>
+      <a href="#indicadores">Indicadores</a>
+      <a href="#pista">Pista Interativa</a>
+      <a href="#mapa">Mapa Técnico</a>
+      <a href="#boxes">Ações de Boxes</a>
+    </nav>
+
+    <div class="top-controls">
+      <button id="themeToggle" class="btn-icon" title="Alternar Modo Noite (Le Mans 24h)">
+        🌙 <span class="btn-label">Modo Noite</span>
+      </button>
+      <div class="live-pill"><span class="live-dot"></span> AO VIVO · LE MANS</div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===== 1. HERO & MAIN DASHBOARD ===== -->
+  <section id="dashboard">
+    <div class="hero">
+      <div class="hero-meta">
+        <span class="chip blue">Ford GT40 Mk II</span>
+        <span class="chip red">vs Ferrari 330 P3</span>
+        <span class="chip">Temporada 1966</span>
+        <span class="chip">Operação de Pista</span>
+      </div>
+      <h1>FORD RACING TECHNICAL CONTROL SYSTEM</h1>
+      <p>Plataforma operacional de alta fidelidade utilizada pela equipe de boxes da Ford para monitorar em tempo real <strong>falhas técnicas</strong>, <strong>telemetria de pista</strong>, <strong>desgaste de componentes</strong> e coordenar <strong>ações corretivas</strong> sob extrema pressão.</p>
+
+      <div id="kpiGrid" class="kpi-grid">
+        <!-- Dynamically injected KPI Cards with Sparklines -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 2. MOVIE TECHNICAL REFERENCES ===== -->
+  <section id="referencias">
+    <div class="section-head">
+      <div class="section-title"><span class="bar"></span> Referências Técnicas Inspiradas no Filme</div>
+      <span class="section-sub">Eventos mecânicos e estratégicos retratados em <em>Ford vs Ferrari</em>, perfeitamente integrados ao controle de pista.</span>
+    </div>
+    <div id="refCards" class="grid-3"></div>
+  </section>
+
+  <!-- ===== 3. REGISTRATION FORM ===== -->
+  <section id="registrar">
+    <div class="section-head">
+      <div class="section-title"><span class="bar"></span> Registrar Ocorrência Técnica</div>
+      <span class="section-sub">O sistema de diagnóstico classifica a gravidade de forma autônoma com base nos componentes e sintomas informados.</span>
+    </div>
+    <div class="panel">
+      <form id="issueForm" class="issue-form" autocomplete="off">
+        <div class="field"><label>Corrida</label>
+          <input name="race" required placeholder="Ex.: Le Mans 1966" value="Le Mans 1966" />
+        </div>
+        <div class="field"><label>Carro</label>
+          <input name="car" required placeholder="Ex.: Ford GT40 Mk II - Nº 1" value="Ford GT40 Mk II - Nº 1" />
+        </div>
+        <div class="field"><label>Piloto</label>
+          <input name="driver" required placeholder="Ex.: Ken Miles / Denny Hulme" value="Ken Miles / Denny Hulme" />
+        </div>
+
+        <div class="field"><label>Parte afetada</label>
+          <select name="affectedPart" id="partSelect" required>
+            <option value="">Selecione o Componente...</option>
+            <option>Motor</option><option>Freios</option><option>Câmbio</option>
+            <option>Combustível</option><option>Suspensão</option><option>Pneus</option>
+            <option>Porta</option><option>Aerodinâmica</option><option>Comunicação</option>
+            <option>Escapamento</option><option>Operação de boxes</option>
+          </select>
+        </div>
+        <div class="field"><label>Tipo de problema</label>
+          <input name="problemType" id="problemTypeInput" required placeholder="Ex.: Superaquecimento dos discos" />
+        </div>
+        <div class="field"><label>Status</label>
+          <select name="status" required>
+            <option>Pendente</option><option>Em análise</option>
+            <option>Em andamento</option><option>Resolvido</option>
+          </select>
+        </div>
+
+        <div class="field"><label>Responsável pelo conserto</label>
+          <input name="repairOwner" required placeholder="Ex.: Phil Remington" />
+        </div>
+        <div class="field"><label>Responsável pela análise</label>
+          <input name="analysisOwner" required placeholder="Ex.: Carroll Shelby" />
+        </div>
+        <div class="field"><label>Tempo estimado de resposta</label>
+          <input name="estimatedResponseTime" required placeholder="Ex.: 8 min" />
+        </div>
+
+        <div class="field full"><label>Descrição detalhada dos sintomas</label>
+          <textarea name="description" required placeholder="Descreva o comportamento dinâmico e o feedback do piloto..."></textarea>
+        </div>
+        <div class="field half"><label>Ação corretiva proposta</label>
+          <textarea name="proposedAction" required placeholder="Instruções para o pit stop ou ajustes de pilotagem..."></textarea>
+        </div>
+        <div class="field"><label>Impacto na corrida</label>
+          <textarea name="raceImpact" required placeholder="Ex.: Perda de 2 segundos por volta..."></textarea>
+        </div>
+
+        <div class="field severity-preview full">
+          <span>Nível de Gravidade Calculado pelo Sistema:</span>
+          <strong id="sevPreview" style="color:#fff; font-size:15px;">—</strong>
+        </div>
+
+        <div class="full" style="display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap;">
+          <button type="reset" class="btn ghost">Limpar Formulário</button>
+          <button type="submit" class="btn primary">⚙ Registrar no Sistema</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== 4. HISTORY TABLE ===== -->
+  <section id="historico">
+    <div class="section-head">
+      <div class="section-title"><span class="bar"></span> Histórico de Ocorrências Técnicas</div>
+      <span class="section-sub" id="tableCount">— registros encontrados</span>
+    </div>
+
+    <div class="filters">
+      <input type="text" id="searchInput" placeholder="Buscar por carro, piloto, sintoma, equipe..." />
+      <select id="filterStatus">
+        <option value="">Todos os Status</option>
+        <option>Resolvido</option><option>Pendente</option>
+        <option>Em análise</option><option>Em andamento</option>
+      </select>
+      <select id="filterSeverity">
+        <option value="">Todas as Gravidades</option>
+        <option>Crítica</option><option>Alta</option>
+        <option>Média</option><option>Baixa</option>
+      </select>
+      <select id="filterPart">
+        <option value="">Todos os Componentes</option>
+      </select>
+      <button class="btn" id="clearFilters">Limpar Filtros</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="issues">
+        <thead>
+          <tr>
+            <th data-sort="id">ID</th>
+            <th data-sort="race">Corrida</th>
+            <th data-sort="car">Carro</th>
+            <th data-sort="driver">Piloto</th>
+            <th data-sort="affectedPart">Componente</th>
+            <th data-sort="problemType">Sintoma</th>
+            <th data-sort="severity">Gravidade</th>
+            <th data-sort="status">Status</th>
+            <th data-sort="repairOwner">Conserto</th>
+            <th data-sort="analysisOwner">Análise</th>
+            <th>Descrição</th>
+            <th>Ação Proposta</th>
+            <th>Impacto</th>
+            <th data-sort="estimatedResponseTime">Tempo</th>
+          </tr>
+        </thead>
+        <tbody id="issueTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 5. ANALYTICS ===== -->
+  <section id="indicadores">
+    <div class="section-head">
+      <div class="section-title"><span class="bar"></span> Indicadores e Análise de Confiabilidade</div>
+      <span class="section-sub">Métricas de eficiência operacional, incidência por subsistema e distribuição de severidade.</span>
+    </div>
+    <div class="analytics-grid">
+      <div class="panel">
+        <h3>Taxa de Resolução por Corrida</h3>
+        <div id="raceBars"></div>
+      </div>
+      <div class="panel">
+        <h3>Ocorrências por Subsistema</h3>
+        <div id="partBars"></div>
+      </div>
+      <div class="panel">
+        <h3>Distribuição de Severidade</h3>
+        <div id="sevBars" class="donut-stack"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 6. INTERACTIVE RACE TRACK (LE MANS) ===== -->
+  <section id="pista">
+    <div class="section-head">
+      <div class="section-title"><span class="bar"></span> Pista de Corrida Real — Circuit de la Sarthe</div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button class="btn danger" id="simulateBtn" title="Injeta um novo evento técnico aleatório na corrida">
+          ⚡ Simular Incidente de Pista
+        </button>
+      </div>
+    </div>
+
+    <div class="track-wrap">
+      <!-- Left: The Live SVG Track Map -->
+      <div class="track-container">
+        <svg viewBox="0 0 1000 460" class="lemans-svg">
+          <defs>
+            <!-- Headlight Cone Gradient -->
+            <linearGradient id="headlight-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
+              <stop offset="30%" stop-color="#ffe27a" stop-opacity="0.4" />
+              <stop offset="100%" stop-color="#ffe27a" stop-opacity="0" />
+            </linearGradient>
+            
+            <!-- Ferrari Headlight -->
+            <linearGradient id="ferrari-light-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
+              <stop offset="40%" stop-color="#ffb86b" stop-opacity="0.5" />
+              <stop offset="100%" stop-color="#ffb86b" stop-opacity="0" />
+            </linearGradient>
+
+            <!-- Glow Filters -->
+            <filter id="car-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          <!-- Sector Status Underlays -->
+          <!-- Sector 1: Start to Mulsanne entry -->
+          <path d="M 230 70 C 310 20, 400 20, 460 70 C 485 90, 495 115, 515 155" class="sector-indicator sector-1" id="trackSec1" />
+          <!-- Sector 2: Mulsanne Straight to Mulsanne Corner -->
+          <path d="M 515 155 L 830 335 C 875 360, 855 425, 785 415" class="sector-indicator sector-2" id="trackSec2" />
+          <!-- Sector 3: Indianapolis to Start -->
+          <path d="M 785 415 L 550 370 C 505 360, 470 415, 425 390 L 265 285 C 200 240, 135 185, 155 120 C 165 80, 195 70, 230 70 Z" class="sector-indicator sector-3" id="trackSec3" />
+
+          <!-- Main Track Visuals -->
+          <path id="lemans-physical-asphalt" d="M 230 70 C 310 20, 400 20, 460 70 C 485 90, 495 115, 515 155 L 830 335 C 875 360, 855 425, 785 415 L 550 370 C 505 360, 470 415, 425 390 L 265 285 C 200 240, 135 185, 155 120 C 165 80, 195 70, 230 70 Z" class="track-asphalt" />
+          <path d="M 230 70 C 310 20, 400 20, 460 70 C 485 90, 495 115, 515 155 L 830 335 C 875 360, 855 425, 785 415 L 550 370 C 505 360, 470 415, 425 390 L 265 285 C 200 240, 135 185, 155 120 C 165 80, 195 70, 230 70 Z" class="track-border" />
+          
+          <!-- Mathematical Racing Line (Used by JS for perfect coordinates) -->
+          <path id="lemans-racing-line" d="M 230 70 C 310 20, 400 20, 460 70 C 485 90, 495 115, 515 155 L 830 335 C 875 360, 855 425, 785 415 L 550 370 C 505 360, 470 415, 425 390 L 265 285 C 200 240, 135 185, 155 120 C 165 80, 195 70, 230 70 Z" class="track-line" />
+
+          <!-- Start / Finish Line -->
+          <g transform="translate(230, 70) rotate(0)">
+            <line x1="-18" y1="0" x2="18" y2="0" stroke="#fff" stroke-width="4" />
+            <line x1="-18" y1="4" x2="18" y2="4" stroke="#000" stroke-width="4" stroke-dasharray="4 4" />
+          </g>
+
+          <!-- Track Corner Labels -->
+          <text x="210" y="45" class="track-label major">Reta dos Boxes</text>
+          <text x="355" y="15" class="track-label">Curva Dunlop</text>
+          <text x="510" y="80" class="track-label">Tertre Rouge</text>
+          <text x="690" y="240" class="track-label major" transform="rotate(28, 690, 240)">Reta Mulsanne (Hunaudières)</text>
+          <text x="860" y="390" class="track-label">Curva Mulsanne</text>
+          <text x="640" y="355" class="track-label">Arnage</text>
+          <text x="450" y="440" class="track-label">Indianapolis</text>
+          <text x="240" y="350" class="track-label">Curvas Porsche</text>
+          <text x="90" y="150" class="track-label">Chicane Ford</text>
+
+          <!-- CAR 2: FERRARI 330 P3 -->
+          <g id="trackCarFerrari" class="track-car-group">
+            <!-- Headlight Cones -->
+            <polygon points="10,-8 110,-35 110,5" fill="url(#ferrari-light-grad)" class="headlight-cone" />
+            <polygon points="10,8 110,-5 110,35" fill="url(#ferrari-light-grad)" class="headlight-cone" />
+            <!-- Car Body -->
+            <rect x="-14" y="-8" width="28" height="16" rx="4" fill="#d40000" stroke="#ff8a8a" stroke-width="1" filter="url(#car-glow)" />
+            <rect x="-5" y="-5" width="10" height="10" rx="2" fill="#050811" />
+            <!-- Golden Wheels -->
+            <rect x="-10" y="-9.5" width="6" height="2" fill="#ffb86b" />
+            <rect x="4" y="-9.5" width="6" height="2" fill="#ffb86b" />
+            <rect x="-10" y="7.5" width="6" height="2" fill="#ffb86b" />
+            <rect x="4" y="7.5" width="6" height="2" fill="#ffb86b" />
+            <!-- Label -->
+            <text x="0" y="-14" font-size="9" font-weight="800" fill="#ff8a8a" text-anchor="middle">FERRARI</text>
+          </g>
+
+          <!-- CAR 1: FORD GT40 Mk II -->
+          <g id="trackCarFord" class="track-car-group">
+            <!-- Headlight Cones -->
+            <polygon points="12,-9 130,-40 130,10" fill="url(#headlight-grad)" class="headlight-cone" />
+            <polygon points="12,9 130,-10 130,40" fill="url(#headlight-grad)" class="headlight-cone" />
+            <!-- Car Body -->
+            <rect x="-16" y="-9" width="32" height="18" rx="4" fill="#1872d6" stroke="#ffffff" stroke-width="1.5" filter="url(#car-glow)" />
+            <!-- White Racing Stripes -->
+            <rect x="-13" y="-3" width="26" height="6" fill="#ffffff" />
+            <!-- Cockpit -->
+            <rect x="-4" y="-6" width="12" height="12" rx="2" fill="#050811" />
+            <!-- Exhaust / Tail details -->
+            <rect x="-17" y="-3" width="2" height="6" fill="#ff8a1f" />
+            <!-- Label -->
+            <text x="0" y="-15" font-size="10" font-weight="900" fill="#a9c9ff" text-anchor="middle">FORD GT40</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Right: Telemetry & Controls -->
+      <div class="track-stats panel">
+        <h3>Telemetria de Pista & Controle</h3>
+        
+        <div class="track-controls-bar">
+          <span style="font-size:11px; font-weight:700; color:var(--text-2); text-transform:uppercase;">Velocidade Simulação:</span>
+          <div class="speed-btns">
+            <button class="speed-btn active" data-speed="1">1x</button>
+            <button class="speed-btn" data-speed="2">2x</button>
+            <button class="speed-btn" data-speed="5">5x</button>
+            <button class="speed-btn" data-speed="0">Pausar</button>
+          </div>
+        </div>
+
+        <div class="stat"><span>Volta Atual</span><span class="v" id="lapCount">1</span></div>
+        <div class="stat"><span>Velocidade Ford GT40</span><span class="v ford-c" id="fordSpeed">328 km/h</span></div>
+        <div class="stat"><span>Velocidade Ferrari 330</span><span class="v ferr-c" id="ferrariSpeed">315 km/h</span></div>
+        <div class="stat"><span>Status do Ford</span><span class="v ford-c" id="fordStatus">Ritmo de Ataque</span></div>
+        <div class="stat"><span>Status da Ferrari</span><span class="v ferr-c" id="ferrariStatus">Sobrecarga Térmica</span></div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--text-2); margin-bottom:6px; font-weight:600;">
+            Último Alerta de Telemetria
+          </div>
+          <div class="alert-box" id="lastAlert">
+            Sistemas estáveis. Ken Miles ampliando a vantagem na Reta Mulsanne.
+          </div>
+        </div>
+
+        <!-- Live Pit-Wall Terminal -->
+        <div class="telemetry-terminal">
+          <div class="terminal-header">
+            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+            <span>PIT-WALL TELEMETRY STREAM // LIVE</span>
+          </div>
+          <div class="terminal-body" id="terminalLogs">
+            <div class="log-row">[00:00:00] SHELBY: "We're lighter, we're faster, and if that don't work, we're nastier."</div>
+            <div class="log-row">[00:00:02] REMINGTON: "I can fix that door. Give me the mallet."</div>
+            <div class="log-row">[00:00:05] AGAPIOU: "Ken está virando 3:30.5! É novo recorde da pista!"</div>
+            <div class="log-row">[00:00:08] TELEMETRIA: "A Ferrari de Bandini está fumando! O motor V12 não aguentou a pressão!"</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 7. CAR TECHNICAL MAP (X-RAY BLUEPRINT) ===== -->
+  <section id="mapa">
+    <div class="section-head">
+      <div class="section-title"><span class="bar"></span> Mapa Técnico de Alta Fidelidade — Ford GT40 Mk II</div>
+      <span class="section-sub">Alterne para o <strong>Raio-X Interno</strong> para inspecionar o estresse mecânico e filtrar ocorrências por subsistema.</span>
+    </div>
+
+    <div class="carmap-grid">
+      <!-- Left: The Interactive Blueprint View -->
+      <div class="blueprint-wrap" id="blueprintWrap">
+        
+        <div class="blueprint-controls">
+          <div class="blueprint-mode-toggle">
+            <button class="active" id="btnModeOuter">Carenagem Externa</button>
+            <button id="btnModeXray">Raio-X Interno</button>
+          </div>
+          <span style="font-size:11px; color:var(--text-2); font-weight:600;">CLIQUE EM UMA PEÇA PARA FILTRAR</span>
+        </div>
+
+        <!-- High-Fidelity Multi-Layer SVG -->
+        <svg viewBox="0 0 800 320" class="gt40-blueprint-svg">
+          
+          <!-- LAYER 1: INTERNAL MECHANICS (X-RAY) -->
+          <g id="layerInternalMechanics">
+            
+            <!-- Pit Wall / Operations Module -->
+            <g class="car-internal-part" id="part-Operação de boxes" data-part="Operação de boxes">
+              <rect x="50" y="30" width="120" height="40" rx="4" fill="#0f172a" stroke="#f5c518" stroke-width="2" />
+              <text x="110" y="50" fill="#f5c518" font-size="10" font-weight="800" text-anchor="middle">PIT-WALL / SHELBY</text>
+              <text x="110" y="62" fill="#cfd6e4" font-size="8" font-weight="600" text-anchor="middle">CONTROLE TÁTICO</text>
+            </g>
+
+            <!-- Engine Block (V8 7.0L) -->
+            <g class="car-internal-part" id="part-Motor" data-part="Motor">
+              <!-- Engine Core -->
+              <path d="M 270 120 L 370 120 L 360 190 L 280 190 Z" fill="#1e293b" stroke="#3aa3ff" stroke-width="2" />
+              <!-- 8 Intake Trumpets -->
+              <rect x="285" y="105" width="8" height="15" fill="#ff8a1f" />
+              <rect x="300" y="105" width="8" height="15" fill="#ff8a1f" />
+              <rect x="315" y="105" width="8" height="15" fill="#ff8a1f" />
+              <rect x="330" y="105" width="8" height="15" fill="#ff8a1f" />
+              <rect x="290" y="100" width="8" height="15" fill="#ff8a1f" />
+              <rect x="305" y="100" width="8" height="15" fill="#ff8a1f" />
+              <rect x="320" y="100" width="8" height="15" fill="#ff8a1f" />
+              <rect x="335" y="100" width="8" height="15" fill="#ff8a1f" />
+              <!-- Exhaust Headers -->
+              <path d="M 280 160 C 250 150, 230 170, 210 175" fill="none" stroke="#cfd6e4" stroke-width="4" />
+              <path d="M 360 160 C 390 150, 410 170, 430 175" fill="none" stroke="#cfd6e4" stroke-width="4" />
+              <text x="320" y="155" fill="#3aa3ff" font-size="14" font-weight="800" text-anchor="middle">V8 7.0L</text>
+            </g>
+
+            <!-- Transaxle / Câmbio -->
+            <g class="car-internal-part" id="part-Câmbio" data-part="Câmbio">
+              <path d="M 190 145 L 270 135 L 270 185 L 190 175 Z" fill="#334155" stroke="#f5c518" stroke-width="2" />
+              <circle cx="230" cy="160" r="12" fill="#f5c518" opacity="0.3" />
+              <text x="230" y="164" fill="#f5c518" font-size="11" font-weight="700" text-anchor="middle">CÂMBIO</text>
+            </g>
+
+            <!-- Fuel Cells / Combustível -->
+            <g class="car-internal-part" id="part-Combustível" data-part="Combustível">
+              <rect x="390" y="135" width="110" height="45" rx="6" fill="#0f172a" stroke="#22c55e" stroke-width="2" />
+              <!-- Fuel Level indicator -->
+              <rect x="395" y="140" width="100" height="35" rx="4" fill="#22c55e" opacity="0.2" />
+              <text x="445" y="162" fill="#22c55e" font-size="12" font-weight="700" text-anchor="middle">TANQUE 140L</text>
+            </g>
+
+            <!-- Suspension / Suspensão -->
+            <g class="car-internal-part" id="part-Suspensão" data-part="Suspensão">
+              <!-- Front Suspension -->
+              <path d="M 570 150 L 595 130 M 570 170 L 595 190" stroke="#ff8a1f" stroke-width="4" stroke-linecap="round" />
+              <path d="M 580 135 L 580 185" stroke="#f5c518" stroke-width="6" stroke-dasharray="4 2" />
+              <!-- Rear Suspension -->
+              <path d="M 210 150 L 185 130 M 210 170 L 185 190" stroke="#ff8a1f" stroke-width="4" stroke-linecap="round" />
+              <path d="M 198 135 L 198 185" stroke="#f5c518" stroke-width="6" stroke-dasharray="4 2" />
+              <text x="540" y="140" fill="#ff8a1f" font-size="10" font-weight="700">SUSP. DIANT</text>
+            </g>
+
+            <!-- Brakes / Freios (Slotted glowing discs) -->
+            <g class="car-internal-part" id="part-Freios" data-part="Freios">
+              <!-- Front Disc -->
+              <circle cx="610" cy="200" r="24" fill="none" stroke="#ff2a2a" stroke-width="8" opacity="0.8" />
+              <circle cx="610" cy="200" r="20" fill="none" stroke="#fff" stroke-width="1" stroke-dasharray="4 4" />
+              <!-- Rear Disc -->
+              <circle cx="170" cy="200" r="24" fill="none" stroke="#ff2a2a" stroke-width="8" opacity="0.8" />
+              <circle cx="170" cy="200" r="20" fill="none" stroke="#fff" stroke-width="1" stroke-dasharray="4 4" />
+              <text x="610" y="204" fill="#fff" font-size="10" font-weight="800" text-anchor="middle">DISCOS</text>
+            </g>
+
+            <!-- Exhaust / Escapamento -->
+            <g class="car-internal-part" id="part-Escapamento" data-part="Escapamento">
+              <path d="M 210 165 C 160 165, 120 175, 70 175" fill="none" stroke="#e2e8f0" stroke-width="8" stroke-linecap="round" />
+              <path d="M 210 155 C 160 155, 120 165, 70 165" fill="none" stroke="#94a3b8" stroke-width="6" stroke-linecap="round" />
+              <text x="100" y="150" fill="#e2e8f0" font-size="10" font-weight="700">ESCAPAMENTO</text>
+            </g>
+
+            <!-- Door Structure / Porta -->
+            <g class="car-internal-part" id="part-Porta" data-part="Porta">
+              <path d="M 285 115 L 425 105 L 415 185 L 285 185 Z" fill="none" stroke="#3aa3ff" stroke-width="3" stroke-dasharray="6 3" />
+              <text x="350" y="140" fill="#3aa3ff" font-size="10" font-weight="700" text-anchor="middle">ESTRUTURA PORTA</text>
+            </g>
+
+            <!-- Aerodynamics / Aerodinâmica -->
+            <g class="car-internal-part" id="part-Aerodinâmica" data-part="Aerodinâmica">
+              <path d="M 650 125 C 690 125, 730 140, 735 185 C 735 210, 700 220, 650 220" fill="none" stroke="#60a5fa" stroke-width="4" />
+              <text x="690" y="175" fill="#60a5fa" font-size="9" font-weight="700" text-anchor="middle">AERODINÂMICA</text>
+            </g>
+
+            <!-- Tires / Pneus -->
+            <g class="car-internal-part" id="part-Pneus" data-part="Pneus">
+              <circle cx="610" cy="200" r="32" fill="none" stroke="#cbd5e1" stroke-width="4" stroke-dasharray="8 4" />
+              <circle cx="170" cy="200" r="32" fill="none" stroke="#cbd5e1" stroke-width="4" stroke-dasharray="8 4" />
+              <text x="610" y="180" fill="#cbd5e1" font-size="9" font-weight="700" text-anchor="middle">GOODYEAR</text>
+            </g>
+
+            <!-- Communication / Comunicação -->
+            <g class="car-internal-part" id="part-Comunicação" data-part="Comunicação">
+              <circle cx="420" cy="85" r="12" fill="#e2e8f0" stroke="#3aa3ff" stroke-width="2" />
+              <path d="M 420 73 L 420 40" stroke="#3aa3ff" stroke-width="3" />
+              <text x="420" y="32" fill="#3aa3ff" font-size="8" font-weight="700" text-anchor="middle">RÁDIO UHF</text>
+            </g>
+
+          </g>
+
+          <!-- LAYER 2: SILHOUETTE & OUTER SHELL -->
+          <g id="layerOuterShell" class="car-outer-shell">
+            
+            <!-- Metallic Body Gradients -->
+            <defs>
+              <linearGradient id="gt40-body" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#0a3d91" />
+                <stop offset="40%" stop-color="#1872d6" />
+                <stop offset="70%" stop-color="#1872d6" />
+                <stop offset="100%" stop-color="#04265f" />
+              </linearGradient>
+              <linearGradient id="gt40-glass" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1e293b" />
+                <stop offset="100%" stop-color="#050811" />
+              </linearGradient>
+            </defs>
+
+            <!-- Shadow -->
+            <ellipse cx="390" cy="235" rx="340" ry="12" fill="#000" opacity="0.6" />
+
+            <!-- Main Aerodynamic Body Path -->
+            <path d="M 80 180 
+                     C 80 140, 140 125, 230 115 
+                     C 300 100, 370 90, 450 90 
+                     C 510 90, 580 110, 650 130 
+                     C 710 145, 740 160, 740 195 
+                     C 740 220, 710 225, 680 225 
+                     L 100 225 
+                     C 85 225, 80 210, 80 180 Z" 
+                  fill="url(#gt40-body)" stroke="#60a5fa" stroke-width="2" />
+
+            <!-- Cockpit Glass -->
+            <path d="M 300 110 
+                     C 360 95, 430 95, 490 110 
+                     L 520 135 
+                     C 450 130, 370 130, 280 135 Z" 
+                  fill="url(#gt40-glass)" stroke="#334155" stroke-width="2" />
+
+            <!-- Door Cutout Outline -->
+            <path d="M 280 135 L 300 110 C 350 100, 400 100, 430 105 L 420 180 L 280 185 Z" 
+                  fill="none" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="3 2" />
+
+            <!-- Front Headlights -->
+            <path d="M 660 135 C 685 140, 710 150, 725 165 L 720 175 C 695 160, 670 150, 655 145 Z" fill="#ffffff" opacity="0.9" />
+            <circle cx="680" cy="150" r="8" fill="#ffe27a" />
+            <circle cx="705" cy="160" r="6" fill="#ffe27a" />
+
+            <!-- Iconic Side Number -->
+            <circle cx="350" cy="165" r="26" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" />
+            <text x="350" y="177" font-size="32" font-family="Segoe UI" font-weight="900" fill="#0a3d91" text-anchor="middle">1</text>
+
+            <!-- Wheels / Pneus -->
+            <g id="wheelRear">
+              <circle cx="170" cy="200" r="34" fill="#0b0f19" stroke="#334155" stroke-width="3" />
+              <circle cx="170" cy="200" r="18" fill="#cbd5e1" stroke="#04265f" stroke-width="4" />
+              <!-- Golden Spinner -->
+              <polygon points="170,190 175,200 165,200" fill="#f5c518" />
+              <polygon points="170,210 175,200 165,200" fill="#f5c518" />
+            </g>
+
+            <g id="wheelFront">
+              <circle cx="610" cy="200" r="34" fill="#0b0f19" stroke="#334155" stroke-width="3" />
+              <circle cx="610" cy="200" r="18" fill="#cbd5e1" stroke="#04265f" stroke-width="4" />
+              <!-- Golden Spinner -->
+              <polygon points="610,190 615,200 605,200" fill="#f5c518" />
+              <polygon points="610,210 615,200 605,200" fill="#f5c518" />
+            </g>
+
+          </g>
+
+          <!-- LAYER 3: INTERACTIVE OVERLAY HOTSPOTS -->
+          <g id="layerHotspots">
+            <!-- Pit Wall Module -->
+            <rect class="part-hotspot" id="hs-Operação de boxes" x="50" y="30" width="120" height="40" rx="4" data-part="Operação de boxes" />
+            <!-- Engine -->
+            <rect class="part-hotspot" id="hs-Motor" x="270" y="100" width="110" height="90" rx="8" data-part="Motor" />
+            <!-- Transaxle -->
+            <rect class="part-hotspot" id="hs-Câmbio" x="180" y="130" width="80" height="60" rx="6" data-part="Câmbio" />
+            <!-- Fuel -->
+            <rect class="part-hotspot" id="hs-Combustível" x="390" y="130" width="110" height="60" rx="6" data-part="Combustível" />
+            <!-- Doors -->
+            <path class="part-hotspot" id="hs-Porta" d="M 280 110 L 430 100 L 420 190 L 280 190 Z" data-part="Porta" />
+            <!-- Aerodynamics (Front Nose) -->
+            <path class="part-hotspot" id="hs-Aerodinâmica" d="M 640 120 L 740 150 L 740 220 L 640 220 Z" data-part="Aerodinâmica" />
+            <!-- Brakes & Tires -->
+            <circle class="part-hotspot" id="hs-Freios" cx="170" cy="200" r="35" data-part="Freios" />
+            <circle class="part-hotspot" id="hs-Pneus" cx="610" cy="200" r="35" data-part="Pneus" />
+            <!-- Suspension -->
+            <rect class="part-hotspot" id="hs-Suspensão" x="530" y="120" width="70" height="80" rx="6" data-part="Suspensão" />
+            <!-- Communication (Roof Pitot/Antenna) -->
+            <circle class="part-hotspot" id="hs-Comunicação" cx="420" cy="85" r="18" data-part="Comunicação" />
+            <!-- Exhaust -->
+            <rect class="part-hotspot" id="hs-Escapamento" x="60" y="145" width="110" height="40" rx="6" data-part="Escapamento" />
+          </g>
+
+        </svg>
+
+        <!-- Floating High-Tech Component HUD -->
+        <div class="tech-hud" id="techHud">
+          <h5><span id="hudPartName">Motor</span> <span id="hudPartSev" class="badge sev-medium">Média</span></h5>
+          <div class="specs" id="hudPartSpecs">
+            Especificações técnicas e estresse do componente.
+          </div>
+          <div style="font-size:10px; color:var(--text-2); margin-bottom:2px; display:flex; justify-content:space-between;">
+            <span>NÍVEL DE ESTRESSE DINÂMICO</span>
+            <span id="hudStressVal">45%</span>
+          </div>
+          <div class="stress-bar"><div class="stress-fill" id="hudStressFill"></div></div>
+          <button class="hud-btn" id="hudFilterBtn">Filtrar Tabela por este Componente</button>
+        </div>
+
+      </div>
+
+      <!-- Right: Subsystem Status List -->
+      <div>
+        <div id="partList" class="part-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 8. PIT CREW ACTION BOARD ===== -->
+  <section id="boxes">
+    <div class="section-head">
+      <div class="section-title"><span class="bar"></span> Quadro de Ações da Equipe de Boxes</div>
+      <span class="section-sub">Sincronização tática para intervenções rápidas durante as paradas programadas e de emergência.</span>
+    </div>
+    <div class="pit-grid">
+      <div class="pit-col crit-col">
+        <h4>Ações Críticas <span class="n" id="pitCrit">0</span></h4>
+        <div class="pit-list-wrap" id="pitCritList"></div>
+      </div>
+      <div class="pit-col pend-col">
+        <h4>Ações Pendentes <span class="n" id="pitPend">0</span></h4>
+        <div class="pit-list-wrap" id="pitPendList"></div>
+      </div>
+      <div class="pit-col res-col">
+        <h4>Ações Resolvidas <span class="n" id="pitRes">0</span></h4>
+        <div class="pit-list-wrap" id="pitResList"></div>
+      </div>
+      <div class="pit-col prev-col">
+        <h4>Inspeção Preventiva <span class="n" id="pitPrev">0</span></h4>
+        <div class="pit-list-wrap" id="pitPrevList"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Toast Notifications Layer -->
+<div class="toast-container" id="toastContainer"></div>
+
+<footer>
+  FORD RACING TECHNICAL CONTROL SYSTEM · <span>PLATAFORMA OPERACIONAL DE ALTA FIDELIDADE</span> · INSPIRADO NO UNIVERSO DE FORD VS FERRARI
+</footer>
+
+<script>
+/* =========================================================================
+   FORD RACING TECHNICAL CONTROL SYSTEM — HIGH FIDELITY EDITION
+   Advanced single-file application with precise SVG animation & telemetry
+   ========================================================================= */
+
+/* ---------- Core Dataset — 100% Movie Accurate ---------- */
+const initialIssues = [
+  {
+    id: 1, race: "Le Mans 1966", car: "Ford GT40 Mk II - Nº 1",
+    driver: "Ken Miles / Denny Hulme", affectedPart: "Porta",
+    problemType: "Falha de travamento na largada", severity: "Alta",
+    status: "Resolvido", repairOwner: "Phil Remington / Equipe de Carroceria",
+    analysisOwner: "Carroll Shelby",
+    description: "Durante a tradicional largada estilo Le Mans, Ken Miles correu para o cockpit, mas a porta não travou. O piloto foi obrigado a segurar a porta com uma mão enquanto pilotava no primeiro stint.",
+    proposedAction: "Aplicar impacto mecânico de precisão (marretada) no trinco e na estrutura da porta durante o primeiro pit stop para forçar o alinhamento do fecho.",
+    raceImpact: "Perda de tempo na primeira volta e estresse físico extremo para o piloto. Resolvido sem penalidades.",
+    estimatedResponseTime: "3 min"
+  },
+  {
+    id: 2, race: "Le Mans 1966", car: "Ford GT40 Mk II - Nº 1",
+    driver: "Ken Miles / Denny Hulme", affectedPart: "Freios",
+    problemType: "Superaquecimento e perda total de freio", severity: "Crítica",
+    status: "Resolvido", repairOwner: "Phil Remington / Charlie Agapiou",
+    analysisOwner: "Engenharia Kar Kraft",
+    description: "Devido ao peso de 1.200 kg e velocidades de 330 km/h, os discos Kelsey-Hayes atingiram temperaturas críticas, fundindo as pastilhas e falhando no final da Reta Mulsanne.",
+    proposedAction: "Exploitar lacuna no regulamento da ACO: realizar a troca do conjunto completo de freio (rotores e pinças pré-montados) como uma peça única no pit stop.",
+    raceImpact: "Parada mais longa, porém garante a segurança e performance de frenagem contra as Ferraris. Protesto da Ferrari rejeitado pelos comissários.",
+    estimatedResponseTime: "8 min"
+  },
+  {
+    id: 3, race: "Testes de Desenvolvimento", car: "Ford GT40 Mk II - Protótipo",
+    driver: "Ken Miles", affectedPart: "Aerodinâmica",
+    problemType: "Levantamento do nariz em alta velocidade", severity: "Alta",
+    status: "Resolvido", repairOwner: "Ken Miles / Carroll Shelby",
+    analysisOwner: "Ken Miles (Piloto de Testes)",
+    description: "O carro apresentava instabilidade e perda de controle direcional acima de 300 km/h. Ken Miles colou dezenas de fios de lã na carenagem para mapear visualmente o fluxo de ar.",
+    proposedAction: "Modificar o fluxo interno do capô e instalar um spoiler traseiro (Gurney flap / bico de pato) para gerar o downforce necessário e manter o carro plantado.",
+    raceImpact: "Ganho imediato de estabilidade e aumento da velocidade máxima nas retas sem comprometer o arrasto.",
+    estimatedResponseTime: "15 min"
+  },
+  {
+    id: 4, race: "Le Mans 1966", car: "Ford GT40 Mk II - Nº 2",
+    driver: "Bruce McLaren / Chris Amon", affectedPart: "Câmbio",
+    problemType: "Estresse no trambulador e engrenagens", severity: "Crítica",
+    status: "Resolvido", repairOwner: "Equipe de Transmissão",
+    analysisOwner: "Computador de Simulação (Dearborn)",
+    description: "O torque massivo do motor V8 de 7.0L destruía as engrenagens do câmbio original. A falha foi isolada após simulações em Dearborn rodarem o motor até a quebra.",
+    proposedAction: "Instalar a transmissão Kar Kraft T-44 reforçada e instruir os pilotos a sincronizarem as rotações com precisão nas reduções da Mulsanne.",
+    raceImpact: "Eliminou a maior causa de abandonos da Ford nas temporadas de 1964 e 1965.",
+    estimatedResponseTime: "12 min"
+  },
+  {
+    id: 5, race: "Le Mans 1966", car: "Ford GT40 Mk II - Nº 1",
+    driver: "Ken Miles", affectedPart: "Motor",
+    problemType: "Temperatura e giro no limite (7000+ RPM)", severity: "Crítica",
+    status: "Em andamento", repairOwner: "Carroll Shelby (Gestão de Pista)",
+    analysisOwner: "Leo Beebe (Diretor de Relações Públicas)",
+    description: "Para alcançar e pressionar a Ferrari 330 P3 de Lorenzo Bandini, Ken Miles ignorou a placa de limite de giro (6200 RPM) e estabeleceu voltas recordes consecutivas.",
+    proposedAction: "Monitorar a telemetria térmica e a pressão do óleo. Shelby autoriza Miles a manter o ritmo de ataque até que a Ferrari quebre por estresse mecânico.",
+    raceImpact: "Quebra do motor da Ferrari de Bandini. Ken Miles assume a liderança absoluta da prova.",
+    estimatedResponseTime: "5 min"
+  },
+  {
+    id: 6, race: "Daytona 1966", car: "Ford GT40 Mk II - Nº 98",
+    driver: "Ken Miles", affectedPart: "Comunicação",
+    problemType: "Perda severa de visibilidade", severity: "Média",
+    status: "Resolvido", repairOwner: "Charlie Agapiou",
+    analysisOwner: "Equipe de Box",
+    description: "O para-brisa ficou completamente coberto de óleo, borracha e detritos lançados pelos retardatários no anel de alta velocidade, cegando o piloto.",
+    proposedAction: "Limpeza agressiva do vidro durante o reabastecimento e remoção de películas protetoras. Ken Miles utilizou o rádio para alertar a equipe com antecedência.",
+    raceImpact: "Miles manteve o ritmo e venceu a prova, superando a equipe oficial da Holman-Moody.",
+    estimatedResponseTime: "2 min"
+  },
+  {
+    id: 7, race: "Le Mans 1966", car: "Ford GT40 Mk II - Nº 1",
+    driver: "Ken Miles / Denny Hulme", affectedPart: "Combustível",
+    problemType: "Janela de reabastecimento mais curta", severity: "Alta",
+    status: "Pendente", repairOwner: "Equipe de Abastecimento",
+    analysisOwner: "Carroll Shelby",
+    description: "O motor V8 7.0L consome significativamente mais combustível que o V12 de 4.0L da Ferrari, exigindo paradas mais frequentes para injetar os 140 litros.",
+    proposedAction: "Otimizar o fluxo das mangueiras de alta pressão no pit lane para reduzir o tempo de parada a menos de 15 segundos. Compensar o peso extra com ritmo agressivo.",
+    raceImpact: "Exige perfeição absoluta dos mecânicos para não perder a vantagem conquistada na pista.",
+    estimatedResponseTime: "4 min"
+  },
+  {
+    id: 8, race: "Le Mans 1966", car: "Ford GT40 Mk II - Nº 1",
+    driver: "Ken Miles", affectedPart: "Operação de boxes",
+    problemType: "Ordem de equipe para desacelerar", severity: "Média",
+    status: "Em análise", repairOwner: "Leo Beebe / Carroll Shelby",
+    analysisOwner: "Diretoria da Ford Motor Company",
+    description: "Com Ken Miles liderando com várias voltas de vantagem, Leo Beebe ordenou que ele desacelerasse para que os três Fords cruzassem a linha de chegada juntos em uma foto histórica.",
+    proposedAction: "Shelby transmite a ordem, mas deixa a decisão final nas mãos de Ken Miles. Miles decide desacelerar e aceitar a chegada em formação.",
+    raceImpact: "A decisão custa a vitória técnica de Ken Miles devido à regra de distância percorrida da ACO, dando a vitória ao carro Nº 2 de McLaren.",
+    estimatedResponseTime: "10 min"
+  }
+];
+
+/* ---------- Official Technical Component Specifications ---------- */
+const COMPONENT_SPECS = {
+  "Motor": {
+    specs: "Motor Ford FE 427 cu in (7.0L) V8. Potência de 485 hp a 6200 RPM. Bloco de ferro fundido com cabeçotes de alumínio.",
+    baseStress: 65
+  },
+  "Freios": {
+    specs: "Discos ventilados Kelsey-Hayes nas 4 rodas. Rotores de alto estresse térmico sujeitos a temperaturas superiores a 700°C.",
+    baseStress: 75
+  },
+  "Câmbio": {
+    specs: "Transaxle Kar Kraft / Ford T-44 de 4 velocidades. Desenvolvido especificamente para suportar o torque massivo do V8 7.0L.",
+    baseStress: 55
+  },
+  "Combustível": {
+    specs: "Células de combustível laterais de borracha com capacidade total de 140 litros. Consumo sob ataque: ~1.2 km/l.",
+    baseStress: 40
+  },
+  "Suspensão": {
+    specs: "Braços duplos sobrepostos com molas helicoidais e amortecedores ajustáveis. Calibrada para estabilidade acima de 300 km/h.",
+    baseStress: 50
+  },
+  "Pneus": {
+    specs: "Pneus Goodyear Blue Streak de alta aderência. Desgaste monitorado a cada parada para evitar delaminação em alta velocidade.",
+    baseStress: 60
+  },
+  "Porta": {
+    specs: "Estrutura ultraleve com recortes aerodinâmicos no teto. Mecanismo de trava rápida de aviação.",
+    baseStress: 25
+  },
+  "Aerodinâmica": {
+    specs: "Carenagem de fibra de vidro testada em túnel de vento. Spoiler traseiro ajustável para otimizar o downforce em Le Mans.",
+    baseStress: 35
+  },
+  "Comunicação": {
+    specs: "Sistema de rádio de ultra-alta frequência (UHF) pit-piloto e telemetria de sensores mecânicos primários.",
+    baseStress: 20
+  },
+  "Escapamento": {
+    specs: "Coletores dimensionados tipo 'Bundle of Snakes' em aço inoxidável, otimizando o fluxo de exaustão e o ronco característico.",
+    baseStress: 45
+  },
+  "Operação de boxes": {
+    specs: "Coordenação tática comandada por Carroll Shelby e Phil Remington. Tempo-alvo de reabastecimento e troca de freios: < 25 segundos.",
+    baseStress: 30
+  }
+};
+
+/* ---------- Runtime Application State ---------- */
+let issues = JSON.parse(JSON.stringify(initialIssues));
+let nextId = issues.length + 1;
+let currentSortColumn = "id";
+let currentSortAsc = false;
+
+/* Track Simulation Metrics */
+let lap = 1;
+let fordDistance = 0;
+let ferrariDistance = 400; // Ferrari starts slightly ahead or behind on the loop
+let simSpeed = 1;
+let isTrackPaused = false;
+let trackPathElement = null;
+let trackPathLength = 0;
+
+/* Historical KPI Data for Sparklines (Stores arrays of values) */
+let kpiHistory = {
+  total: [8, 8, 8, 8, 8],
+  resolved: [4, 4, 4, 4, 4],
+  pending: [2, 2, 2, 2, 2],
+  rate: [50, 50, 50, 50, 50]
+};
+
+/* ---------- Diagnostic Severity Logic ---------- */
+const severityRules = {
+  critica: ["motor", "freios", "câmbio", "combustível", "vazamento de combustível",
+            "superaquecimento", "perda de pressão de óleo", "falha total"],
+  alta:    ["suspensão", "pneus", "direção", "porta", "refrigeração",
+            "vibração em alta velocidade", "desgaste irregular", "falha de fechamento"],
+  media:   ["aerodinâmica", "comunicação", "sensor", "estratégia de boxes",
+            "arrasto", "alerta do piloto"],
+  baixa:   ["pintura", "ajuste visual", "ruído leve", "acabamento", "item não essencial"]
+};
+
+function calculateSeverity(affectedPart, problemType) {
+  const p = (problemType || "").toLowerCase();
+  const part = (affectedPart || "").toLowerCase();
+  const combined = `${part} ${p}`;
+
+  for (const keyword of severityRules.critica) {
+    if (combined.includes(keyword)) return "Crítica";
+  }
+  for (const keyword of severityRules.alta) {
+    if (combined.includes(keyword)) return "Alta";
+  }
+  for (const keyword of severityRules.media) {
+    if (combined.includes(keyword)) return "Média";
+  }
+  for (const keyword of severityRules.baixa) {
+    if (combined.includes(keyword)) return "Baixa";
+  }
+  
+  const criticalParts = ["motor", "freios", "câmbio", "combustível"];
+  if (criticalParts.includes(part)) return "Crítica";
+  return "Média";
+}
+
+/* ---------- Sparkline Drawer ---------- */
+function drawSparkline(canvas, data, color) {
+  if (!canvas || !data || data.length < 2) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const min = Math.min(...data) * 0.95;
+  const max = Math.max(...data) * 1.05;
+  const range = (max - min) || 1;
+
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+
+  data.forEach((val, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((val - min) / range) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Add subtle gradient fill under the line
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.fillStyle = color.replace(")", ", 0.15)").replace("rgb", "rgba");
+  ctx.fill();
+}
+
+/* ---------- Main Dashboard Rendering ---------- */
+function renderDashboard() {
+  const total = issues.length;
+  const resolved = issues.filter(i => i.status === "Resolvido").length;
+  const pending = issues.filter(i => i.status === "Pendente").length;
+  const critical = issues.filter(i => i.severity === "Crítica").length;
+  const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+
+  // Update history arrays
+  kpiHistory.total.push(total);
+  kpiHistory.resolved.push(resolved);
+  kpiHistory.pending.push(pending);
+  kpiHistory.rate.push(rate);
+  
+  // Keep arrays bounded
+  Object.keys(kpiHistory).forEach(k => {
+    if (kpiHistory[k].length > 12) kpiHistory[k].shift();
+  });
+
+  const partCount = {};
+  issues.forEach(i => { partCount[i.affectedPart] = (partCount[i.affectedPart] || 0) + 1; });
+  const mostPart = Object.entries(partCount).sort((a, b) => b[1] - a[1])[0];
+
+  const raceCount = {};
+  issues.forEach(i => { raceCount[i.race] = (raceCount[i.race] || 0) + 1; });
+  const mostRace = Object.entries(raceCount).sort((a, b) => b[1] - a[1])[0];
+
+  const avgTime = total > 0
+    ? (issues.reduce((s, i) => s + (parseInt(i.estimatedResponseTime) || 0), 0) / total).toFixed(1)
+    : 0;
+
+  const kpis = [
+    { id: "kpi-tot", label: "Total de Ocorrências", value: total, sub: "Registradas no sistema", cls: "", sparkData: kpiHistory.total, sparkColor: "#3aa3ff" },
+    { id: "kpi-res", label: "Problemas Resolvidos", value: resolved, sub: `De ${total} diagnósticos`, cls: "good", sparkData: kpiHistory.resolved, sparkColor: "#22c55e" },
+    { id: "kpi-pen", label: "Problemas Pendentes", value: pending, sub: "Aguardando intervenção", cls: pending > 0 ? "warn" : "", sparkData: kpiHistory.pending, sparkColor: "#f5c518" },
+    { id: "kpi-rat", label: "Taxa de Resolução", value: `${rate}<small>%</small>`, sub: "Eficiência da equipe", cls: rate >= 60 ? "good" : "warn", sparkData: kpiHistory.rate, sparkColor: rate >= 60 ? "#22c55e" : "#f5c518" },
+    { id: "kpi-cri", label: "Ocorrências Críticas", value: critical, sub: "Risco iminente de quebra", cls: critical > 0 ? "critical" : "", sparkData: null },
+    { id: "kpi-par", label: "Subsistema Mais Afetado", value: mostPart ? mostPart[0] : "—", sub: mostPart ? `${mostPart[1]} registros` : "", cls: "", sparkData: null },
+    { id: "kpi-rac", label: "Corrida Mais Crítica", value: mostRace ? mostRace[0] : "—", sub: mostRace ? `${mostRace[1]} falhas` : "", cls: "warn", sparkData: null },
+    { id: "kpi-tim", label: "Tempo Médio Resposta", value: `${avgTime}<small> min</small>`, sub: "Estimativa de reparo", cls: "", sparkData: null }
+  ];
+
+  const grid = document.getElementById("kpiGrid");
+  grid.innerHTML = kpis.map(k => `
+    <div class="kpi ${k.cls}">
+      <div>
+        <div class="label">${k.label}</div>
+        <div class="value">${k.value}</div>
+      </div>
+      <div class="sub">${k.sub}</div>
+      ${k.sparkData ? `<canvas id="canvas-${k.id}" class="kpi-sparkline" width="280" height="40"></canvas>` : ''}
+    </div>
+  `).join("");
+
+  // Render Sparklines after DOM update
+  kpis.forEach(k => {
+    if (k.sparkData) {
+      const canvas = document.getElementById(`canvas-${k.id}`);
+      drawSparkline(canvas, k.sparkData, k.sparkColor);
+    }
+  });
+}
+
+/* ---------- Table & Sorting ---------- */
+function sevBadge(s) {
+  const map = { "Crítica": "sev-crit", "Alta": "sev-high", "Média": "sev-medium", "Baixa": "sev-low" };
+  return `<span class="badge ${map[s] || 'sev-medium'}">${s}</span>`;
+}
+function statusBadge(s) {
+  const map = { "Resolvido": "st-resolved", "Pendente": "st-pending", "Em análise": "st-analysis", "Em andamento": "st-progress" };
+  return `<span class="badge ${map[s] || 'st-analysis'}">${s}</span>`;
+}
+
+function renderIssueTable(filteredList) {
+  const list = filteredList || issues;
+  
+  // Apply sorting
+  list.sort((a, b) => {
+    let valA = a[currentSortColumn];
+    let valB = b[currentSortColumn];
+    
+    if (currentSortColumn === "estimatedResponseTime") {
+      valA = parseInt(valA) || 0; valB = parseInt(valB) || 0;
+    } else if (currentSortColumn === "severity") {
+      const order = { "Crítica": 4, "Alta": 3, "Média": 2, "Baixa": 1 };
+      valA = order[valA] || 0; valB = order[valB] || 0;
+    } else if (typeof valA === "string") {
+      valA = valA.toLowerCase(); valB = valB.toLowerCase();
+    }
+    
+    if (valA < valB) return currentSortAsc ? -1 : 1;
+    if (valA > valB) return currentSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const tbody = document.getElementById("issueTableBody");
+  tbody.innerHTML = list.map(i => `
+    <tr class="${i.severity === 'Crítica' ? 'critical-row' : ''}">
+      <td><strong>#${i.id}</strong></td>
+      <td>${i.race}</td>
+      <td><strong>${i.car}</strong></td>
+      <td>${i.driver}</td>
+      <td><span style="color:#fff; font-weight:600;">${i.affectedPart}</span></td>
+      <td>${i.problemType}</td>
+      <td>${sevBadge(i.severity)}</td>
+      <td>${statusBadge(i.status)}</td>
+      <td>${i.repairOwner}</td>
+      <td>${i.analysisOwner}</td>
+      <td style="max-width:220px;">${i.description}</td>
+      <td style="max-width:220px;">${i.proposedAction}</td>
+      <td style="max-width:180px;">${i.raceImpact}</td>
+      <td><strong>${i.estimatedResponseTime}</strong></td>
+    </tr>
+  `).join("");
+  
+  document.getElementById("tableCount").textContent = `${list.length} registro${list.length !== 1 ? 's' : ''} encontrado${list.length !== 1 ? 's' : ''}`;
+}
+
+function applyFilters() {
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const fs = document.getElementById("filterStatus").value;
+  const fv = document.getElementById("filterSeverity").value;
+  const fp = document.getElementById("filterPart").value;
+
+  const filtered = issues.filter(i => {
+    if (fs && i.status !== fs) return false;
+    if (fv && i.severity !== fv) return false;
+    if (fp && i.affectedPart !== fp) return false;
+    if (q) {
+      const blob = `${i.race} ${i.car} ${i.driver} ${i.affectedPart} ${i.problemType} ${i.description} ${i.repairOwner} ${i.analysisOwner}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+  renderIssueTable(filtered);
+}
+
+function populatePartFilter() {
+  const sel = document.getElementById("filterPart");
+  const parts = [...new Set(issues.map(i => i.affectedPart))].sort();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todos os Componentes</option>' +
+    parts.map(p => `<option ${p === current ? 'selected' : ''}>${p}</option>`).join("");
+}
+
+/* ---------- Analytics Charts ---------- */
+function renderAnalytics() {
+  // Resolution Rate by Race
+  const groups = {};
+  issues.forEach(i => {
+    if (!groups[i.race]) groups[i.race] = { total: 0, resolved: 0 };
+    groups[i.race].total++;
+    if (i.status === "Resolvido") groups[i.race].resolved++;
+  });
+
+  const raceHtml = Object.entries(groups).map(([race, v]) => {
+    const pct = Math.round((v.resolved / v.total) * 100);
+    const color = pct >= 60 ? "green" : pct >= 30 ? "yellow" : "red";
+    return `
+      <div class="bar-row">
+        <span style="font-weight:600;">${race}</span>
+        <div class="bar-track"><div class="bar-fill ${color}" style="width:${pct}%"></div></div>
+        <span style="text-align:right; color:#fff; font-weight:700;">${pct}%</span>
+      </div>`;
+  }).join("");
+  document.getElementById("raceBars").innerHTML = raceHtml || '<div style="color:var(--text-3)">Sem dados suficientes</div>';
+
+  // Issues by Part
+  const partCount = {};
+  issues.forEach(i => { partCount[i.affectedPart] = (partCount[i.affectedPart] || 0) + 1; });
+  const maxPart = Math.max(...Object.values(partCount), 1);
+  const partHtml = Object.entries(partCount)
+    .sort((a, b) => b[1] - a[1])
+    .map(([part, n]) => {
+      const pct = Math.round((n / maxPart) * 100);
+      return `
+        <div class="bar-row">
+          <span style="font-weight:600;">${part}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <span style="text-align:right; color:#fff; font-weight:700;">${n}</span>
+        </div>`;
+    }).join("");
+  document.getElementById("partBars").innerHTML = partHtml || '<div style="color:var(--text-3)">Sem dados suficientes</div>';
+
+  // Severity Donut Stack
+  const sevCount = { "Crítica": 0, "Alta": 0, "Média": 0, "Baixa": 0 };
+  issues.forEach(i => { if (sevCount[i.severity] !== undefined) sevCount[i.severity]++; });
+  const sevMap = {
+    "Crítica": { cls: "sev-crit",   bar: "red"    },
+    "Alta":    { cls: "sev-high",   bar: "orange" },
+    "Média":   { cls: "sev-medium", bar: "yellow" },
+    "Baixa":   { cls: "sev-low",    bar: ""       }
+  };
+  const totalSev = issues.length || 1;
+  const sevHtml = Object.entries(sevCount).map(([sev, n]) => {
+    const pct = Math.round((n / totalSev) * 100);
+    return `
+      <div class="donut-item">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="badge ${sevMap[sev].cls}">${sev}</span>
+          <div style="width:130px;">
+            <div class="bar-track"><div class="bar-fill ${sevMap[sev].bar}" style="width:${pct}%"></div></div>
+          </div>
+        </div>
+        <span class="count">${n} <small style="color:var(--text-2); font-weight:500;">(${pct}%)</small></span>
+      </div>`;
+  }).join("");
+  document.getElementById("sevBars").innerHTML = sevHtml;
+}
+
+/* ---------- Multi-Layer Blueprint Map ---------- */
+function renderPartMap() {
+  const partStats = {};
+  Object.keys(COMPONENT_SPECS).forEach(p => { partStats[p] = { count: 0, topSev: null, topRank: 0 }; });
+  
+  const SEVERITY_RANK = { "Crítica": 4, "Alta": 3, "Média": 2, "Baixa": 1 };
+  
+  issues.forEach(i => {
+    const key = Object.keys(COMPONENT_SPECS).find(p => p.toLowerCase() === i.affectedPart.toLowerCase());
+    if (!key) return;
+    partStats[key].count++;
+    const r = SEVERITY_RANK[i.severity] || 0;
+    if (r > partStats[key].topRank) {
+      partStats[key].topRank = r;
+      partStats[key].topSev = i.severity;
+    }
+  });
+
+  // Update overlay Hotspots
+  Object.keys(COMPONENT_SPECS).forEach(part => {
+    const hs = document.getElementById(`hs-${part}`);
+    if (!hs) return;
+    hs.classList.remove("crit", "high", "med");
+    const s = partStats[part];
+    if (s && s.topSev) {
+      if (s.topSev === "Crítica") hs.classList.add("crit");
+      else if (s.topSev === "Alta") hs.classList.add("high");
+      else hs.classList.add("med");
+    }
+  });
+
+  // Render Sidebar List
+  const listEl = document.getElementById("partList");
+  listEl.innerHTML = Object.entries(partStats)
+    .sort((a, b) => b[1].count - a[1].count || b[1].topRank - a[1].topRank)
+    .map(([part, s]) => {
+      const cls = s.topSev === "Crítica" ? "crit"
+                : s.topSev === "Alta" ? "high"
+                : s.topSev ? "med" : "none";
+      const sevHtml = s.topSev ? sevBadge(s.topSev) : '<span class="badge sev-low">Sem Falhas</span>';
+      return `
+        <div class="part-item ${cls}" data-part="${part}">
+          <div>
+            <div class="part-name">${part}</div>
+            <div class="part-meta">${s.count} registro${s.count !== 1 ? 's' : ''} ativo${s.count !== 1 ? 's' : ''}</div>
+          </div>
+          <div>${sevHtml}</div>
+        </div>`;
+    }).join("");
+
+  // Bind Clicks to Sidebar List
+  document.querySelectorAll(".part-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const p = item.getAttribute("data-part");
+      activatePartHud(p);
+    });
+  });
+}
+
+/* Activate Floating HUD for Technical Blueprint */
+function activatePartHud(partName) {
+  const hud = document.getElementById("techHud");
+  const specObj = COMPONENT_SPECS[partName];
+  if (!specObj) return;
+
+  // Calculate dynamic stress
+  const partIssues = issues.filter(i => i.affectedPart.toLowerCase() === partName.toLowerCase());
+  const critCount = partIssues.filter(i => i.severity === "Crítica").length;
+  const highCount = partIssues.filter(i => i.severity === "Alta").length;
+  
+  let addedStress = (critCount * 15) + (highCount * 8) + (partIssues.length * 3);
+  let finalStress = Math.min(specObj.baseStress + addedStress, 98);
+
+  // Highest severity
+  const SEVERITY_RANK = { "Crítica": 4, "Alta": 3, "Média": 2, "Baixa": 1 };
+  let topSev = "Baixa";
+  let maxR = 0;
+  partIssues.forEach(i => {
+    const r = SEVERITY_RANK[i.severity];
+    if (r > maxR) { maxR = r; topSev = i.severity; }
+  });
+
+  document.getElementById("hudPartName").textContent = partName.toUpperCase();
+  document.getElementById("hudPartSev").outerHTML = partIssues.length > 0 ? sevBadge(topSev) : '<span id="hudPartSev" class="badge sev-low">Normal</span>';
+  document.getElementById("hudPartSpecs").textContent = specObj.specs;
+  document.getElementById("hudStressVal").textContent = `${finalStress}%`;
+  
+  const fill = document.getElementById("hudStressFill");
+  fill.style.width = `${finalStress}%`;
+  fill.style.background = finalStress > 80 ? "var(--ferrari-red-bright)" : finalStress > 60 ? "var(--severity-orange)" : "var(--resolved-green)";
+
+  hud.classList.add("active");
+
+  // Highlight corresponding internal SVG part
+  document.querySelectorAll(".car-internal-part").forEach(p => p.classList.remove("internal-glow"));
+  const internalPart = document.getElementById(`part-${partName}`);
+  if (internalPart) internalPart.classList.add("internal-glow");
+
+  // Configure Filter Button
+  const btn = document.getElementById("hudFilterBtn");
+  btn.onclick = () => {
+    document.getElementById("filterPart").value = partName;
+    applyFilters();
+    document.getElementById("historico").scrollIntoView({ behavior: "smooth" });
+  };
+}
+
+/* ---------- Pit Crew Action Board ---------- */
+function renderPitCrewActions() {
+  const crit = issues.filter(i => i.severity === "Crítica");
+  const pend = issues.filter(i => i.status === "Pendente" && i.severity !== "Crítica");
+  const res  = issues.filter(i => i.status === "Resolvido");
+  const prev = issues.filter(i => i.status === "Em análise" || i.status === "Em andamento");
+
+  const makeList = (arr) => arr.slice(0, 5).map(i => `
+    <div class="pit-item">
+      <div class="tag">
+        <span>#${i.id} · ${i.affectedPart}</span>
+        <span style="color:#fff; font-weight:700;">${i.estimatedResponseTime}</span>
+      </div>
+      <div class="txt">${i.proposedAction}</div>
+    </div>`).join("") || '<div style="color:var(--text-3); font-size:12px; font-style:italic;">Nenhuma ação requerida no momento.</div>';
+
+  document.getElementById("pitCrit").textContent = crit.length;
+  document.getElementById("pitPend").textContent = pend.length;
+  document.getElementById("pitRes").textContent  = res.length;
+  document.getElementById("pitPrev").textContent = prev.length;
+  
+  document.getElementById("pitCritList").innerHTML = makeList(crit);
+  document.getElementById("pitPendList").innerHTML = makeList(pend);
+  document.getElementById("pitResList").innerHTML  = makeList(res);
+  document.getElementById("pitPrevList").innerHTML = makeList(prev);
+}
+
+/* ---------- Movie Reference Cards — 100% Cinematic Fidelity ---------- */
+const movieReferences = [
+  {
+    title: "A Porta Emperrada", event: "Largada em Le Mans 1966", part: "Porta", severity: "Alta",
+    interpretation: "Ken Miles corre para o Ford GT40 na largada, mas a porta recusa-se a fechar devido ao empenamento do chassi. Ele é forçado a segurá-la no primeiro stint.",
+    action: "Phil Remington utiliza uma marreta de borracha na parada para reconfigurar a estrutura metálica do fecho na base da força.",
+    variant: ""
+  },
+  {
+    title: "A Brecha dos Freios", event: "Fadiga Térmica", part: "Freios", severity: "Crítica",
+    interpretation: "Os discos Kelsey-Hayes aquecem até o rubro e racham. O sistema de freios falha catastroficamente sob as imensas exigências da Reta Mulsanne.",
+    action: "A equipe de Shelby inventa a troca do conjunto pré-montado (rotor e pinça inteiros). O protesto da Ferrari é invalidado pelos comissários.",
+    variant: "critical"
+  },
+  {
+    title: "Os Fios de Lã", event: "Testes em LAX", part: "Aerodinâmica", severity: "Alta",
+    interpretation: "O protótipo inicial sofre com instabilidade e decolagem do nariz. Ken Miles cola dezenas de fios de lã na fuselagem para visualizar as correntes de ar.",
+    action: "A instalação de dutos de escoamento no capô e do spoiler Gurney flap na traseira mantém o carro perfeitamente colado ao asfalto.",
+    variant: ""
+  },
+  {
+    title: "O Dinamômetro de Dearborn", event: "Quebras do Transaxle", part: "Câmbio", severity: "Crítica",
+    interpretation: "O torque descomunal do motor V8 de 7.0L destrói as caixas de câmbio. Engenheiros em Dearborn programam dinamômetros para simular Le Mans até a falha.",
+    action: "Adoção da transmissão reforçada Kar Kraft T-44 e rigorosa disciplina dos pilotos para sincronizar as rotações nas reduções de marcha.",
+    variant: "critical"
+  },
+  {
+    title: "O Limite de 7.000 RPM", event: "Ataque a Bandini", part: "Motor", severity: "Crítica",
+    interpretation: "Desafiando as ordens de preservação de Leo Beebe, Ken Miles ultrapassa a linha vermelha do V8 7.0L para quebrar a resistência da Ferrari 330 P3.",
+    action: "Shelby endossa a tática de pressão máxima. O motor da Ferrari de Lorenzo Bandini explode, e a Ford assume a ponta.",
+    variant: "critical"
+  },
+  {
+    title: "A Foto Histórica", event: "Reta Final de Le Mans", part: "Operação de boxes", severity: "Média",
+    interpretation: "Leo Beebe exige que Ken Miles desacelere para que os três Fords cruzem a linha de chegada juntos em uma manobra de marketing corporativo.",
+    action: "Miles aceita a ordem e perde a vitória técnica individual devido à regra de distância percorrida da ACO, beneficiando Bruce McLaren.",
+    variant: "warn"
+  }
+];
+
+function renderReferences() {
+  const el = document.getElementById("refCards");
+  el.innerHTML = movieReferences.map(r => `
+    <div class="ref-card ${r.variant}">
+      <div>
+        <h4>${r.title}</h4>
+        <div class="meta">${r.event} · ${r.part} · ${sevBadge(r.severity)}</div>
+        <p>${r.interpretation}</p>
+      </div>
+      <div class="action"><strong>Solução no Filme:</strong> ${r.action}</div>
+    </div>
+  `).join("");
+}
+
+/* ---------- Terminal Logger ---------- */
+function appendTerminalLog(text, type = "") {
+  const terminal = document.getElementById("terminalLogs");
+  if (!terminal) return;
+  const time = new Date().toTimeString().split(' ')[0];
+  const div = document.createElement("div");
+  div.className = `log-row ${type}`;
+  div.textContent = `[${time}] ${text}`;
+  terminal.appendChild(div);
+  terminal.scrollTop = terminal.scrollHeight;
+
+  // Keep max 30 logs
+  while (terminal.children.length > 30) {
+    terminal.removeChild(terminal.firstChild);
+  }
+}
+
+/* ---------- Advanced Race Simulation & SVG Path Telemetry ---------- */
+const RACE_ALERTS = [
+  { part: "Motor", type: "Ken Miles estabelece novo recorde de volta!", desc: "O Ford GT40 Nº 1 crava 3:30.5 na telemetria de pista.", sevHint: "ruído leve", logType: "" },
+  { part: "Freios", type: "Rotores Kelsey-Hayes em rubro intenso", desc: "Equipe de Phil Remington prepara o conjunto pré-montado para troca instantânea.", sevHint: "freios", logType: "crit" },
+  { part: "Aerodinâmica", type: "Ferrari 330 P3 de Bandini ferve o motor!", desc: "O V12 italiano não suportou o ritmo de ataque imposto por Ken Miles.", sevHint: "superaquecimento", logType: "warn" },
+  { part: "Comunicação", type: "Ordem da Diretoria: Reduzir para 6000 RPM", desc: "Leo Beebe solicita preservação dos motores. Ken Miles hesita em confirmar.", sevHint: "comunicação", logType: "warn" },
+  { part: "Aerodinâmica", type: "Ken Miles relata estabilidade absoluta", desc: "'O carro está plantado a 330 km/h na Mulsanne. O Gurney Flap funciona!'", sevHint: "ajuste visual", logType: "" },
+  { part: "Motor", type: "Carroll Shelby exibe a placa 'GO LIKE HELL'", desc: "Autorização tática para ignorar limites de consumo e atacar a liderança.", sevHint: "motor", logType: "warn" },
+  { part: "Comunicação", type: "Para-brisa coberto por óleo de retardatário", desc: "Charlie Agapiou prepara espátulas e solvente para a próxima parada.", sevHint: "comunicação", logType: "" },
+  { part: "Escapamento", type: "Coletores 'Bundle of Snakes' em estresse térmico", desc: "Vibração harmônica dentro das tolerâncias do dinamômetro de Dearborn.", sevHint: "escapamento", logType: "" }
+];
+
+function simulateRaceEvent() {
+  lap++;
+  document.getElementById("lapCount").textContent = lap;
+
+  // Pick random alert
+  const alert = RACE_ALERTS[Math.floor(Math.random() * RACE_ALERTS.length)];
+  const severity = calculateSeverity(alert.part, alert.sevHint);
+
+  // Update Alert Display
+  const alertBox = document.getElementById("lastAlert");
+  alertBox.innerHTML = `
+    <span style="font-size:20px;">🎬</span>
+    <div>
+      <strong style="color:#fff;">Volta ${lap} — ${alert.part.toUpperCase()}:</strong> ${alert.type}<br>
+      <span style="color:var(--text-1); font-size:12px;">${alert.desc}</span>
+    </div>`;
+  
+  alertBox.style.borderColor = severity === "Crítica" ? "var(--ferrari-red-bright)" : severity === "Alta" ? "var(--severity-orange)" : "var(--warning-yellow)";
+  alertBox.style.background  = severity === "Crítica" ? "rgba(212,0,0,0.15)" : severity === "Alta" ? "rgba(255,138,31,0.12)" : "rgba(245,197,24,0.1)";
+
+  // Terminal Log
+  appendTerminalLog(`EVENTO: ${alert.type} - ${alert.desc}`, alert.logType);
+
+  // Sector Status Updates
+  const secColors = { "Crítica": "var(--ferrari-red-bright)", "Alta": "var(--severity-orange)", "Média": "var(--warning-yellow)" };
+  const randomSec = Math.floor(Math.random() * 3) + 1;
+  const secEl = document.getElementById(`trackSec${randomSec}`);
+  if (secEl) {
+    secEl.style.stroke = secColors[severity] || "var(--resolved-green)";
+    setTimeout(() => { secEl.style.stroke = "var(--resolved-green)"; }, 15000); // Resets back to green after 15s
+  }
+
+  // Speed telemetry variation
+  const fSpeed = 320 + Math.floor(Math.random() * 15);
+  const feSpeed = 310 + Math.floor(Math.random() * 12);
+  document.getElementById("fordSpeed").textContent = `${fSpeed} km/h`;
+  document.getElementById("ferrariSpeed").textContent = `${feSpeed} km/h`;
+
+  document.getElementById("fordStatus").textContent = severity === "Crítica" ? "Atenção Kar Kraft" : severity === "Alta" ? "Pressão de Pista" : "Ritmo 'Go Like Hell'";
+
+  // Inject into Issue Table (70% probability)
+  if (Math.random() < 0.70) {
+    const drivers = ["Ken Miles / Denny Hulme", "Bruce McLaren / Chris Amon", "Dan Gurney / Jerry Grant"];
+    const cars = ["Ford GT40 Mk II - Nº 1", "Ford GT40 Mk II - Nº 2", "Ford GT40 Mk II - Nº 3"];
+    
+    const newIssue = {
+      race: "Le Mans 1966",
+      car: cars[Math.floor(Math.random() * cars.length)],
+      driver: drivers[Math.floor(Math.random() * drivers.length)],
+      affectedPart: alert.part,
+      problemType: alert.type,
+      severity: severity,
+      status: Math.random() < 0.40 ? "Resolvido" : "Pendente",
+      repairOwner: `Equipe de ${alert.part.toLowerCase()}`,
+      analysisOwner: "Carroll Shelby",
+      description: alert.desc,
+      proposedAction: `Aplicar a solução técnica desenvolvida por Phil Remington e manter o foco na telemetria.`,
+      raceImpact: `Impacto direto na disputa contra a Ferrari na volta ${lap}.`,
+      estimatedResponseTime: `${2 + Math.floor(Math.random() * 10)} min`
+    };
+
+    // Add directly
+    newIssue.id = nextId++;
+    issues.unshift(newIssue);
+    
+    // Show high-tech Toast
+    showToast(newIssue);
+  }
+
+  refreshAll();
+}
+
+/* Toast trigger */
+function showToast(issue) {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+  
+  const cls = issue.severity === "Crítica" ? "crit" : issue.severity === "Alta" ? "warn" : "";
+  const toast = document.createElement("div");
+  toast.className = `toast ${cls}`;
+  toast.innerHTML = `
+    <div style="font-size:10px; color:var(--text-2); margin-bottom:4px; font-weight:700;">NOVO EVENTO CINEMÁTICO</div>
+    <div style="font-weight:700; color:#fff; margin-bottom:2px;">${issue.car}</div>
+    <div>${issue.affectedPart} — ${issue.problemType}</div>
+  `;
+  container.appendChild(toast);
+  
+  // Remove after animation ends
+  setTimeout(() => {
+    if (toast.parentElement) toast.parentElement.removeChild(toast);
+  }, 5000);
+}
+
+/* ---------- Perfect SVG Path Animation Loop ---------- */
+function initTrackAnimation() {
+  trackPathElement = document.getElementById("lemans-racing-line");
+  if (!trackPathElement) return;
+  trackPathLength = trackPathElement.getTotalLength();
+
+  const fordGroup = document.getElementById("trackCarFord");
+  const ferrariGroup = document.getElementById("trackCarFerrari");
+
+  function frame() {
+    if (!isTrackPaused && simSpeed > 0) {
+      // Ford moves slightly faster to simulate catching up / leading
+      fordDistance += 1.8 * simSpeed;
+      ferrariDistance += 1.72 * simSpeed;
+
+      // Loop distances
+      if (fordDistance >= trackPathLength) {
+        fordDistance = 0;
+        // Automatically increment lap occasionally
+        if (Math.random() < 0.5) {
+          lap++;
+          document.getElementById("lapCount").textContent = lap;
+          appendTerminalLog(`Ford GT40 cruzou a linha. Volta ${lap} concluída.`, "");
+        }
+      }
+      if (ferrariDistance >= trackPathLength) ferrariDistance = 0;
+
+      // Update Ford Position & Rotation
+      const fPt = trackPathElement.getPointAtLength(fordDistance);
+      // Look slightly ahead to get the perfect tangent angle
+      const fPtAhead = trackPathElement.getPointAtLength((fordDistance + 5) % trackPathLength);
+      const fAngle = Math.atan2(fPtAhead.y - fPt.y, fPtAhead.x - fPt.x) * (180 / Math.PI);
+      fordGroup.setAttribute("transform", `translate(${fPt.x}, ${fPt.y}) rotate(${fAngle})`);
+
+      // Update Ferrari Position & Rotation
+      const fePt = trackPathElement.getPointAtLength(ferrariDistance);
+      const fePtAhead = trackPathElement.getPointAtLength((ferrariDistance + 5) % trackPathLength);
+      const feAngle = Math.atan2(fePtAhead.y - fePt.y, fePtAhead.x - fePt.x) * (180 / Math.PI);
+      ferrariGroup.setAttribute("transform", `translate(${fePt.x}, ${fePt.y}) rotate(${feAngle})`);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  frame();
+
+  // Occasional random background telemetry chat
+  setInterval(() => {
+    if (isTrackPaused || simSpeed === 0) return;
+    const radioChats = [
+      "RÁDIO: Ken Miles: 'O carro está absolutamente perfeito nas Curvas Porsche.'",
+      "BOXES: Phil Remington inspecionando as pranchetas de desgaste dos freios.",
+      "TELEMETRIA: Consumo do V8 7.0L estabilizado. Preparando mangueiras de alta pressão.",
+      "RÁDIO: Ken Miles: 'Hullo! Here comes the Ferrari.'",
+      "SISTEMA: Rastreamento aerodinâmico Kar Kraft operando com 100% de eficiência."
+    ];
+    const chat = radioChats[Math.floor(Math.random() * radioChats.length)];
+    appendTerminalLog(chat, chat.startsWith("RÁDIO") ? "radio" : "");
+  }, 8000);
+}
+
+/* ---------- Global Refresh ---------- */
+function refreshAll() {
+  renderDashboard();
+  renderIssueTable();
+  populatePartFilter();
+  renderAnalytics();
+  renderPartMap();
+  renderPitCrewActions();
+}
+
+/* ---------- Event Listeners & Bindings ---------- */
+function bindEvents() {
+  // Form Submit
+  const form = document.getElementById("issueForm");
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+    const sev = calculateSeverity(data.affectedPart, data.problemType);
+    
+    const newIssue = { ...data, severity: sev };
+    newIssue.id = nextId++;
+    issues.unshift(newIssue);
+
+    appendTerminalLog(`REGISTRO TÁTICO: #${newIssue.id} - ${newIssue.affectedPart} inserido por ${newIssue.analysisOwner}.`, "warn");
+
+    form.reset();
+    document.getElementById("sevPreview").textContent = "—";
+    refreshAll();
+    
+    showToast(newIssue);
+    document.getElementById("historico").scrollIntoView({ behavior: "smooth" });
+  });
+
+  // Live Severity Preview
+  const updatePreview = () => {
+    const part = document.getElementById("partSelect").value;
+    const type = document.getElementById("problemTypeInput").value;
+    const sev = (part || type) ? calculateSeverity(part, type) : "—";
+    const previewEl = document.getElementById("sevPreview");
+    previewEl.textContent = sev;
+    previewEl.style.color = sev === "Crítica" ? "var(--ferrari-red-bright)" : sev === "Alta" ? "var(--severity-orange)" : sev === "Média" ? "var(--warning-yellow)" : "#fff";
+  };
+  document.getElementById("partSelect").addEventListener("change", updatePreview);
+  document.getElementById("problemTypeInput").addEventListener("input", updatePreview);
+
+  // Filters
+  ["searchInput", "filterStatus", "filterSeverity", "filterPart"].forEach(id => {
+    document.getElementById(id).addEventListener("input", applyFilters);
+    document.getElementById(id).addEventListener("change", applyFilters);
+  });
+  
+  document.getElementById("clearFilters").addEventListener("click", () => {
+    ["searchInput", "filterStatus", "filterSeverity", "filterPart"].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+    applyFilters();
+  });
+
+  // Table Column Sorting
+  document.querySelectorAll("table.issues thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.getAttribute("data-sort");
+      if (!col) return;
+      if (currentSortColumn === col) {
+        currentSortAsc = !currentSortAsc;
+      } else {
+        currentSortColumn = col;
+        currentSortAsc = true;
+      }
+      renderIssueTable();
+    });
+  });
+
+  // Track Speed Controls
+  document.querySelectorAll(".speed-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".speed-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const spd = parseInt(btn.getAttribute("data-speed"));
+      simSpeed = spd;
+      isTrackPaused = (spd === 0);
+      appendTerminalLog(spd === 0 ? "Simulação de pista PAUSADA." : `Velocidade de simulação ajustada para ${spd}x.`, "");
+    });
+  });
+
+  // Manual Event Simulation Trigger
+  document.getElementById("simulateBtn").addEventListener("click", simulateRaceEvent);
+
+  // Blueprint View Modes
+  const wrap = document.getElementById("blueprintWrap");
+  const btnOuter = document.getElementById("btnModeOuter");
+  const btnXray = document.getElementById("btnModeXray");
+
+  btnOuter.addEventListener("click", () => {
+    btnOuter.classList.add("active");
+    btnXray.classList.remove("active");
+    wrap.classList.remove("xray-active");
+  });
+
+  btnXray.addEventListener("click", () => {
+    btnXray.classList.add("active");
+    btnOuter.classList.remove("active");
+    wrap.classList.add("xray-active");
+  });
+
+  // Interactive Blueprint Hotspot Clicks
+  document.querySelectorAll(".part-hotspot").forEach(hs => {
+    hs.addEventListener("click", () => {
+      const part = hs.getAttribute("data-part");
+      if (part) activatePartHud(part);
+    });
+  });
+
+  // Global Night Mode Toggle
+  const themeBtn = document.getElementById("themeToggle");
+  themeBtn.addEventListener("click", () => {
+    document.body.classList.toggle("night-mode");
+    const isNight = document.body.classList.contains("night-mode");
+    themeBtn.querySelector(".btn-label").textContent = isNight ? "Modo Dia" : "Modo Noite";
+    appendTerminalLog(isNight ? "SISTEMA: Modo Noite (Le Mans 24h) ativado. Iluminação de cockpit máxima." : "SISTEMA: Modo Dia ativado.", "");
+  });
+}
+
+/* ---------- Initialization ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  renderReferences();
+  refreshAll();
+  bindEvents();
+  initTrackAnimation();
+});
+</script>
+</body>
+</html>
